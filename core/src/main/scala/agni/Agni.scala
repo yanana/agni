@@ -18,7 +18,7 @@ object Agni extends Functions {
 
   def execute[A](query: String)(
     implicit
-    composite: RowDecoder[A],
+    decoder: RowDecoder[A],
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession { session =>
@@ -27,7 +27,7 @@ object Agni extends Functions {
 
   def execute[A](stmt: Statement)(
     implicit
-    composite: RowDecoder[A],
+    decoder: RowDecoder[A],
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession { session =>
