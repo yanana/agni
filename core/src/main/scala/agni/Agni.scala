@@ -3,7 +3,7 @@ package agni
 import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
 import scodec.bits.ByteVector
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Agni extends Functions {
@@ -22,7 +22,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession { session =>
-      Future(session.execute(query).iterator.map(RowDecoder[A]))
+      Future(session.execute(query).iterator.asScala.map(RowDecoder[A]))
     }
 
   def execute[A](stmt: Statement)(
@@ -31,7 +31,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession { session =>
-      Future(session.execute(stmt).iterator.map(RowDecoder[A]))
+      Future(session.execute(stmt).iterator.asScala.map(RowDecoder[A]))
     }
 
   def batchOn(
@@ -60,8 +60,8 @@ object Agni extends Functions {
 
   // TODO: improve implementation
   private[agni] def convertToJava(any: Any): Object = any match {
-    case a: Set[Any] => a.map(convertToJava): java.util.Set[Object]
-    case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }: java.util.Map[Object, Object]
+    case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
+    case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
     case a: String => a
     case a: Long => a: java.lang.Long
     case a: Int => a: java.lang.Integer
