@@ -14,17 +14,24 @@ lazy val buildSettings = Seq(
 val datastaxVersion = "2.1.9"
 val catsVersion = "0.3.0"
 val shapelessVersion = "2.2.5"
+val scalacheckVersion = "1.12.5"
+
+lazy val coreDeps = Seq(
+  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
+  "org.spire-math" %% "cats" % catsVersion,
+  "com.chuusai" %% "shapeless" % shapelessVersion,
+  "org.scodec" %% "scodec-bits" % "1.0.12"
+)
+
+lazy val testDeps = Seq(
+  "org.scalacheck" %% "scalacheck" % scalacheckVersion
+) map (_ % "test")
 
 lazy val baseSettings = Seq(
   scalacOptions ++= compilerOptions,
   scalacOptions in (Compile, console) := compilerOptions,
   scalacOptions in (Compile, test) := compilerOptions,
-  libraryDependencies ++= Seq(
-    "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
-    "org.spire-math" %% "cats" % catsVersion,
-    "com.chuusai" %% "shapeless" % shapelessVersion,
-    "org.scodec" %% "scodec-bits" % "1.0.12"
-  ),
+  libraryDependencies ++= coreDeps ++ testDeps,
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")

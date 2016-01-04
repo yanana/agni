@@ -59,7 +59,7 @@ object Agni extends Functions {
     }
 
   // TODO: improve implementation
-  private[agni] def convertToJava(any: Any): Object = any match {
+  val convertToJava: Any => Object = (any: Any) => any match {
     case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
     case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
     case a: String => a
@@ -67,12 +67,12 @@ object Agni extends Functions {
     case a: Int => a: java.lang.Integer
     case a: Float => a: java.lang.Float
     case a: Double => a: java.lang.Double
-    case a: Object => a
     case a: BigDecimal => a.bigDecimal
     case a: BigInt => a.bigInteger
     case a: ByteVector => a.toArray
     case Some(a) => convertToJava(a)
     case None => null
+    case a: Object => a
     case a => new RuntimeException(s"uncaught class type ${a}")
   }
 
