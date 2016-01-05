@@ -1,0 +1,11 @@
+box: hseeberger/scala-sbt
+build:
+  steps:
+    - script:
+        name: install git
+        code: |
+          apt-get update && apt-get install git
+    - script:
+        name: run tests and publish if needed
+        code: |
+          sbt coverage test $(if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then echo publish; fi)
