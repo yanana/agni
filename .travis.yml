@@ -8,7 +8,8 @@ cache:
   - "$HOME/.ivy2/cache"
   - "$HOME/.sbt"
 script:
-  - if [[ "${TRAVIS_PULL_REQUEST}" == "false" && "${TRAVIS_BRANCH}" == "master" ]]; then
+  - |
+    if [[ "${TRAVIS_PULL_REQUEST}" == "false" && "${TRAVIS_BRANCH}" == "master" ]]; then
       sbt ++${TRAVIS_SCALA_VERSION} test publish
     else
       sbt ++${TRAVIS_SCALA_VERSION} test
