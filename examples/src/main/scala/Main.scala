@@ -3,7 +3,7 @@ import java.util.UUID
 import java.util.concurrent.ForkJoinPool
 
 import agni._
-import cats.std.future._
+import cats.data.Xor
 import com.datastax.driver.core.policies.{ DefaultRetryPolicy, ExponentialReconnectionPolicy }
 import com.datastax.driver.core.{ NettyOptions, Cluster, Row }
 
@@ -13,13 +13,6 @@ import scala.concurrent.duration._
 object Main extends App {
 
   implicit val executionContext = ExecutionContext.fromExecutorService(new ForkJoinPool())
-
-  val cluster = Cluster.builder()
-    .addContactPoints(InetAddress.getByName("192.168.99.100"))
-    .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
-    .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
-    .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
-    .build()
 
   case class User(
     id: UUID,
@@ -40,19 +33,17 @@ object Main extends App {
   def newId: String = UUID.randomUUID().toString
 
   val remake: String => Action[Future, Unit] = tableName => for {
-    _ <- execute[Unit](s"DROP TABLE IF EXISTS ${tableName}")
-    _ <- execute[Unit](
-      s"""
-         |CREATE TABLE ${tableName} (
-         |  id ascii PRIMARY KEY,
-         |  foods set<ascii>,
-         |  first_name ascii,
-         |  last_name ascii,
-         |  age int,
-         |  gender ascii,
-         |  address map<ascii, ascii>
-         |)""".stripMargin
-    )
+    _ <- execute[Unit](s"DROP TABLE IF EXISTS $tableName")
+    _ <- execute[Unit](s"""
+           |CREATE TABLE $tableName (
+           |  id ascii PRIMARY KEY,
+           |  foods set<ascii>,
+           |  first_name ascii,
+           |  last_name ascii,
+           |  age int,
+           |  gender ascii,
+           |  address map<ascii, ascii>
+           |)""".stripMargin)
   } yield ()
 
   val batchInsert = for {
@@ -92,10 +83,21 @@ object Main extends App {
     ret <- selectAll("user")
   } yield ret
 
+  val cluster = Cluster.builder()
+    .addContactPoints(InetAddress.getByName("192.168.99.100"))
+    .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
+    .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
+    .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
+    .build()
+
   try {
     val session = cluster.connect("test")
-    val result = Await.result(action.run(session), 3000.millis)
-    result foreach println
+    val f = action.run(session)
+    val result = Await.result(f, 3000.millis)
+    result match {
+      case Xor.Right(xs) => xs foreach println
+      case Xor.Left(e) => println(e.getMessage)
+    }
   } catch {
     case e: Throwable => e.printStackTrace()
   }

@@ -35,7 +35,8 @@ lazy val baseSettings = Seq(
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
-  )
+  ),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
 )
 
 lazy val publishSettings = Seq(
@@ -97,7 +98,8 @@ lazy val examples = project.in(file("examples"))
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "1.7.13"
+      "org.slf4j" % "slf4j-simple" % "1.7.13",
+      "io.netty" % "netty-all" % "5.0.0.Alpha2"
     )
   )
   .dependsOn(core)
