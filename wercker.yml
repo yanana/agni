@@ -8,4 +8,10 @@ build:
     - script:
         name: run tests and publish if needed
         code: |
-          sbt coverage test $(if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then echo publish; fi)
+          sbt coverage test
+deploy:
+  steps:
+    - script:
+      name: publish artifacts
+      code: |
+        if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then sbt publish; else :; fi
