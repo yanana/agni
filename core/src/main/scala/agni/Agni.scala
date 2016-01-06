@@ -1,5 +1,6 @@
 package agni
 
+import cats.data.Xor
 import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
 import scodec.bits.ByteVector
 
@@ -12,8 +13,8 @@ object Agni extends Functions {
     implicit
     ctx: ExecutionContext
   ): Action[Future, A] =
-    withSession { session =>
-      Future(a)
+    withSession[Future, A] { session =>
+      Future(Xor.right(a))
     }
 
   def execute[A](query: String)(
@@ -21,8 +22,8 @@ object Agni extends Functions {
     decoder: RowDecoder[A],
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
-    withSession { session =>
-      Future(session.execute(query).iterator.asScala.map(RowDecoder[A]))
+    withSession[Future, Iterator[A]] { session =>
+      Future(Xor.catchOnly[Throwable](session.execute(query).iterator.asScala.map(RowDecoder[A])))
     }
 
   def execute[A](stmt: Statement)(
@@ -30,36 +31,36 @@ object Agni extends Functions {
     decoder: RowDecoder[A],
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
-    withSession { session =>
-      Future(session.execute(stmt).iterator.asScala.map(RowDecoder[A]))
+    withSession[Future, Iterator[A]] { session =>
+      Future(Xor.catchOnly[Throwable](session.execute(stmt).iterator.asScala.map(RowDecoder[A])))
     }
 
   def batchOn(
     implicit
     ctx: ExecutionContext
   ): Action[Future, BatchStatement] =
-    withSession { _ =>
-      Future(new BatchStatement)
+    withSession[Future, BatchStatement] { _ =>
+      Future(Xor.right(new BatchStatement))
     }
 
   def prepare(query: String)(
     implicit
     ctx: ExecutionContext
   ): Action[Future, PreparedStatement] =
-    withSession { session =>
-      Future(session.prepare(query))
+    withSession[Future, PreparedStatement] { session =>
+      Future(Xor.catchOnly[Throwable](session.prepare(query)))
     }
 
   def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(
     implicit
     ctx: ExecutionContext
   ): Action[Future, Unit] =
-    withSession { session =>
-      Future(bstmt.add(pstmt.bind(ps.map(convertToJava): _*)))
+    withSession[Future, Unit] { session =>
+      Future(Xor.catchOnly[Throwable](bstmt.add(pstmt.bind(ps.map(convertToJava): _*))))
     }
 
   // TODO: improve implementation
-  val convertToJava: Any => Object = (any: Any) => any match {
+  val convertToJava: Any => Object = {
     case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
     case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
     case a: String => a
@@ -73,7 +74,7 @@ object Agni extends Functions {
     case Some(a) => convertToJava(a)
     case None => null
     case a: Object => a
-    case a => new RuntimeException(s"uncaught class type ${a}")
+    case a => new RuntimeException(s"uncaught class type $a")
   }
 
 }
