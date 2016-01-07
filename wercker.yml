@@ -20,3 +20,4 @@ deploy:
           echo "${PGP_PASS}" | sbt publish-signed
         else :
         fi
+    - internal/store-container
