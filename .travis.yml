@@ -10,7 +10,7 @@ cache:
 script:
   - |
     if [[ "${TRAVIS_PULL_REQUEST}" == "false" && "${TRAVIS_BRANCH}" == "master" ]]; then
-      sbt ++${TRAVIS_SCALA_VERSION} test publish
+      sbt ++${TRAVIS_SCALA_VERSION} test publish-signed
     else
       sbt ++${TRAVIS_SCALA_VERSION} test
     fi
