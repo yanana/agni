@@ -14,4 +14,9 @@ deploy:
     - script:
       name: publish artifacts
       code: |
-        if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then sbt publish; else :; fi
+        export GPG_SECRET_RING_PATH=$(mktemp -d)/secring.gpg
+        echo "${PGP_SECRET}" | base64 --decode > "${secret_file_path}"
+        if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then
+          echo "${PGP_PASS}" | sbt publish-signed
+        else :
+        fi
