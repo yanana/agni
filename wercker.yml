@@ -9,16 +9,12 @@ build:
         name: run tests and publish if needed
         code: |
           sbt coverage test
-    - internal/store-container
 deploy:
   steps:
     - script:
       name: publish artifacts
       code: |
-        export PGP_SECRET_RING_PATH=$(mktemp -d)/secring.gpg
+        export PGP_SECRET_RING_PATH=$(mktemp -d)/secring.asc
         echo "${PGP_SECRET}" | base64 --decode > "${PGP_SECRET_RING_PATH}"
-        if [[ "${WERCKER_GIT_BRANCH}" == "master" ]]; then
-          echo "${PGP_PASS}" | sbt publish-signed
-        else :
-        fi
-    - internal/store-container
+        echo "${PGP_PASS}" | sbt publish-signed
+
