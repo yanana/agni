@@ -31,6 +31,11 @@ object RowDecoder {
       def apply(row: Row, i: Int): Int = row.getInt(i)
     }
 
+  implicit val longRowDecoder: RowDecoder[Long] =
+    new RowDecoder[Long] {
+      def apply(row: Row, i: Int): Long = row.getLong(i)
+    }
+
   implicit val doubleRowDecoder: RowDecoder[Double] =
     new RowDecoder[Double] {
       def apply(row: Row, i: Int): Double = row.getDouble(i)
