@@ -2,7 +2,7 @@ package agni
 
 import cats.data.Xor
 import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
-import scodec.bits.ByteVector
+import scodec.bits.{ BitVector, ByteVector }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -64,6 +64,7 @@ object Agni extends Functions {
     case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
     case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
     case a: String => a
+    case a: java.nio.ByteBuffer => a
     case a: Long => a: java.lang.Long
     case a: Int => a: java.lang.Integer
     case a: Float => a: java.lang.Float
@@ -71,6 +72,7 @@ object Agni extends Functions {
     case a: BigDecimal => a.bigDecimal
     case a: BigInt => a.bigInteger
     case a: ByteVector => a.toArray
+    case a: BitVector => a.toByteArray
     case Some(a) => convertToJava(a)
     case None => null
     case a: Object => a
