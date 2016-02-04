@@ -5,9 +5,12 @@ import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
 import scodec.bits.{ BitVector, ByteVector }
 
 import scala.collection.JavaConverters._
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Agni extends Functions {
+  // TODO: configurable cache
+  val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
   def lift[A](a: A)(
     implicit
@@ -48,7 +51,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, PreparedStatement] =
     withSession[Future, PreparedStatement] { session =>
-      Future(Xor.catchOnly[Throwable](session.prepare(query)))
+      Future(Xor.catchOnly[Throwable](queryCache.getOrElseUpdate(query, session.prepare(query))))
     }
 
   def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(
