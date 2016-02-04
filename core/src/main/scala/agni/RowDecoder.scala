@@ -6,7 +6,7 @@ import java.time.Instant
 import java.util.{ Date, UUID }
 
 import com.datastax.driver.core.{ Row, TupleValue, UDTValue }
-import scodec.bits.ByteVector
+import scodec.bits.{ BitVector, ByteVector }
 import shapeless._
 
 import scala.collection.JavaConversions._
@@ -20,6 +20,61 @@ trait RowDecoder[A] {
 object RowDecoder {
 
   def apply[A](s: Row)(implicit f: RowDecoder[A]): A = f(s, 0)
+
+  implicit def tuple2RowDecoder[A, B](implicit rda: RowDecoder[A], rdb: RowDecoder[B]): RowDecoder[(A, B)] =
+    new RowDecoder[(A, B)] {
+      def apply(row: Row, i: Int): (A, B) = (rda(row, 0), rdb(row, 1))
+    }
+
+  implicit def tuple3RowDecoder[A, B, C](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C]): RowDecoder[(A, B, C)] =
+    new RowDecoder[(A, B, C)] {
+      def apply(row: Row, i: Int): (A, B, C) = (rda(row, 0), rdb(row, 1), rdc(row, 2))
+    }
+
+  implicit def tuple4RowDecoder[A, B, C, D](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D]): RowDecoder[(A, B, C, D)] =
+    new RowDecoder[(A, B, C, D)] {
+      def apply(row: Row, i: Int): (A, B, C, D) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3))
+    }
+
+  implicit def tuple5RowDecoder[A, B, C, D, E](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E]): RowDecoder[(A, B, C, D, E)] =
+    new RowDecoder[(A, B, C, D, E)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4))
+    }
+
+  implicit def tuple6RowDecoder[A, B, C, D, E, F](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F]): RowDecoder[(A, B, C, D, E, F)] =
+    new RowDecoder[(A, B, C, D, E, F)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5))
+    }
+
+  implicit def tuple7RowDecoder[A, B, C, D, E, F, G](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G]): RowDecoder[(A, B, C, D, E, F, G)] =
+    new RowDecoder[(A, B, C, D, E, F, G)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6))
+    }
+
+  implicit def tuple8RowDecoder[A, B, C, D, E, F, G, H](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G], rdh: RowDecoder[H]): RowDecoder[(A, B, C, D, E, F, G, H)] =
+    new RowDecoder[(A, B, C, D, E, F, G, H)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G, H) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6), rdh(row, 7))
+    }
+
+  implicit def tuple9RowDecoder[A, B, C, D, E, F, G, H, I](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G], rdh: RowDecoder[H], rdi: RowDecoder[I]): RowDecoder[(A, B, C, D, E, F, G, H, I)] =
+    new RowDecoder[(A, B, C, D, E, F, G, H, I)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G, H, I) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6), rdh(row, 7), rdi(row, 8))
+    }
+
+  implicit def tuple10RowDecoder[A, B, C, D, E, F, G, H, I, J](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G], rdh: RowDecoder[H], rdi: RowDecoder[I], rdj: RowDecoder[J]): RowDecoder[(A, B, C, D, E, F, G, H, I, J)] =
+    new RowDecoder[(A, B, C, D, E, F, G, H, I, J)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G, H, I, J) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6), rdh(row, 7), rdi(row, 8), rdj(row, 9))
+    }
+
+  implicit def tuple11RowDecoder[A, B, C, D, E, F, G, H, I, J, K](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G], rdh: RowDecoder[H], rdi: RowDecoder[I], rdj: RowDecoder[J], rdk: RowDecoder[K]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K)] =
+    new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G, H, I, J, K) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6), rdh(row, 7), rdi(row, 8), rdj(row, 9), rdk(row, 10))
+    }
+
+  implicit def tuple12RowDecoder[A, B, C, D, E, F, G, H, I, J, K, L](implicit rda: RowDecoder[A], rdb: RowDecoder[B], rdc: RowDecoder[C], rdd: RowDecoder[D], rde: RowDecoder[E], rdf: RowDecoder[F], rdg: RowDecoder[G], rdh: RowDecoder[H], rdi: RowDecoder[I], rdj: RowDecoder[J], rdk: RowDecoder[K], rdl: RowDecoder[L]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L)] =
+    new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L)] {
+      def apply(row: Row, i: Int): (A, B, C, D, E, F, G, H, I, J, K, L) = (rda(row, 0), rdb(row, 1), rdc(row, 2), rdd(row, 3), rde(row, 4), rdf(row, 5), rdg(row, 6), rdh(row, 7), rdi(row, 8), rdj(row, 9), rdk(row, 10), rdl(row, 11))
+    }
 
   implicit val stringRowDecoder: RowDecoder[String] =
     new RowDecoder[String] {
@@ -68,6 +123,11 @@ object RowDecoder {
   implicit val byteVectorRowDecoder: RowDecoder[ByteVector] =
     new RowDecoder[ByteVector] {
       def apply(row: Row, i: Int): ByteVector = ByteVector(row.getBytes(i))
+    }
+
+  implicit val bitVectorRowDecoder: RowDecoder[BitVector] =
+    new RowDecoder[BitVector] {
+      def apply(row: Row, i: Int): BitVector = BitVector(row.getBytes(i))
     }
 
   implicit val iNetRowDecoder: RowDecoder[InetAddress] =
