@@ -17,7 +17,9 @@ val shapelessVersion = "2.2.5"
 val scalacheckVersion = "1.12.5"
 
 lazy val coreDeps = Seq(
-  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded",
+  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
+    ExclusionRule(organization = "io.netty")
+  ),
   "org.spire-math" %% "cats" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion,
   "org.scodec" %% "scodec-bits" % "1.0.12"
