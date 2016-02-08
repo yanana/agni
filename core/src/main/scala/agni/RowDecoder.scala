@@ -150,10 +150,22 @@ object RowDecoder {
       def apply(row: Row, i: Int): BigInt = row.getVarint(i)
     }
 
-  implicit def listRowDecoder[A](implicit tag: ClassTag[A]): RowDecoder[Seq[A]] =
+  implicit def seqRowDecoder[A](implicit tag: ClassTag[A]): RowDecoder[Seq[A]] =
     new RowDecoder[Seq[A]] {
       def apply(row: Row, i: Int): Seq[A] =
         row.getList(i, classOf[Any]).map(_.asInstanceOf[A])
+    }
+
+  implicit def vectorRowDecoder[A](implicit tag: ClassTag[A]): RowDecoder[Vector[A]] =
+    new RowDecoder[Vector[A]] {
+      def apply(row: Row, i: Int): Vector[A] =
+        row.getList(i, classOf[Any]).map(_.asInstanceOf[A]).toVector
+    }
+
+  implicit def listRowDecoder[A](implicit tag: ClassTag[A]): RowDecoder[List[A]] =
+    new RowDecoder[List[A]] {
+      def apply(row: Row, i: Int): List[A] =
+        row.getList(i, classOf[Any]).map(_.asInstanceOf[A]).toList
     }
 
   implicit def setRowDecoder[A](implicit tag: ClassTag[A]): RowDecoder[Set[A]] =
