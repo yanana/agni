@@ -1,5 +1,7 @@
 package agni
 
+import java.util
+
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Prop._
 import org.scalacheck._
@@ -45,6 +47,34 @@ class AgniSpec extends Properties("Agni") {
   property("convertByteVectorToJava") = forAll { (a: ByteVector) =>
     val converted = Agni.convertToJava(a)
     converted.isInstanceOf[Array[Byte]] && java.util.Arrays.equals(converted.asInstanceOf[Array[Byte]], a.toArray)
+  }
+
+  property("convertListToJava") = forAll { (a: List[Int]) =>
+    val converted = Agni.convertToJava(a)
+    val b = new util.ArrayList[Int]()
+    a.foreach(b.add)
+    converted.isInstanceOf[java.util.List[Object]] && b == converted
+  }
+
+  property("convertVectorToJava") = forAll { (a: Vector[Int]) =>
+    val converted = Agni.convertToJava(a)
+    val b = new util.ArrayList[Int]()
+    a.foreach(b.add)
+    converted.isInstanceOf[java.util.List[Object]] && b == converted
+  }
+
+  property("convertSeqToJava") = forAll { (a: Seq[String]) =>
+    val converted = Agni.convertToJava(a)
+    val b = new util.ArrayList[String]()
+    a.foreach(b.add)
+    converted.isInstanceOf[java.util.List[Object]] && b == converted
+  }
+
+  property("convertMapToJava") = forAll { (a: Map[String, Int]) =>
+    val converted = Agni.convertToJava(a)
+    val b = new util.HashMap[String, Integer]()
+    a.foreach { case (k, v) => b.put(k, v) }
+    converted.isInstanceOf[java.util.Map[Object, Object]] && b == converted
   }
 
   implicit def arbSome[T](implicit a: Arbitrary[T]): Arbitrary[Some[T]] = Arbitrary {
