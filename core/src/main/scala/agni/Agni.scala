@@ -65,6 +65,7 @@ object Agni extends Functions {
   // TODO: improve implementation
   val convertToJava: Any => Object = {
     case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
+    case a: Seq[Any] => a.map(convertToJava).asJava: java.util.List[Object]
     case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
     case a: String => a
     case a: java.nio.ByteBuffer => a
