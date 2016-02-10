@@ -17,7 +17,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, A] =
     withSession[Future, A] { session =>
-      Future(Xor.right(a))
+      Future(a)
     }
 
   def execute[A](query: String)(
@@ -26,7 +26,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession[Future, Iterator[A]] { session =>
-      Future(Xor.catchOnly[Throwable](session.execute(query).iterator.asScala.map(RowDecoder[A])))
+      Future(session.execute(query).iterator.asScala.map(RowDecoder[A]))
     }
 
   def execute[A](stmt: Statement)(
@@ -35,7 +35,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession[Future, Iterator[A]] { session =>
-      Future(Xor.catchOnly[Throwable](session.execute(stmt).iterator.asScala.map(RowDecoder[A])))
+      Future(session.execute(stmt).iterator.asScala.map(RowDecoder[A]))
     }
 
   def batchOn(
@@ -43,7 +43,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, BatchStatement] =
     withSession[Future, BatchStatement] { _ =>
-      Future(Xor.right(new BatchStatement))
+      Future(new BatchStatement)
     }
 
   def prepare(query: String)(
@@ -51,7 +51,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, PreparedStatement] =
     withSession[Future, PreparedStatement] { session =>
-      Future(Xor.catchOnly[Throwable](queryCache.getOrElseUpdate(query, session.prepare(query))))
+      Future(queryCache.getOrElseUpdate(query, session.prepare(query)))
     }
 
   def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(
@@ -59,7 +59,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Unit] =
     withSession[Future, Unit] { session =>
-      Future(Xor.catchOnly[Throwable](bstmt.add(pstmt.bind(ps.map(convertToJava): _*))))
+      Future(bstmt.add(pstmt.bind(ps.map(convertToJava): _*)))
     }
 
   // TODO: improve implementation

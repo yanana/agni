@@ -3,6 +3,8 @@ import java.util.UUID
 import java.util.concurrent.ForkJoinPool
 
 import agni._
+import cats.MonadError
+import cats.std.future._
 import cats.data.Xor
 import com.datastax.driver.core.policies.{ DefaultRetryPolicy, ExponentialReconnectionPolicy }
 import com.datastax.driver.core.{ NettyOptions, Cluster, Row }
@@ -91,11 +93,13 @@ object Main extends App {
     .build()
 
   try {
+    val MF = implicitly[MonadError[Future, Throwable]]
+
     val session = cluster.connect("test")
-    val f = action.run(session)
-    val result = Await.result(f, 3000.millis)
+    val f = MF.attempt(action.run(session))
+    val result = Await.result(f, Duration.Inf)
     result match {
-      case Xor.Right(xs) => xs foreach println
+      case Xor.Right(xs) => xs take 100 foreach println
       case Xor.Left(e) => println(e.getMessage)
     }
   } catch {
