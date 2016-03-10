@@ -8,21 +8,21 @@ lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scala
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.8"
 )
 
-val datastaxVersion = "2.1.9"
-val catsVersion = "0.3.0"
-val shapelessVersion = "2.2.5"
-val scalacheckVersion = "1.12.5"
+val datastaxVersion = "3.0.0"
+val catsVersion = "0.4.1"
+val shapelessVersion = "2.3.0"
+val scalacheckVersion = "1.13.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
     ExclusionRule(organization = "io.netty")
-  ),
-  "org.spire-math" %% "cats" % catsVersion,
+  ) withSources,
+  "org.typelevel" %% "cats" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion,
-  "org.scodec" %% "scodec-bits" % "1.0.12"
+  "org.scodec" %% "scodec-bits" % "1.1.0"
 )
 
 lazy val testDeps = Seq(
