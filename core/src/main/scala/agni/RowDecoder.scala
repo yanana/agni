@@ -137,12 +137,12 @@ object RowDecoder {
 
   implicit val dateRowDecoder: RowDecoder[Date] =
     new RowDecoder[Date] {
-      def apply(row: Row, i: Int): Date = row.getDate(i)
+      def apply(row: Row, i: Int): Date = row.getTimestamp(i)
     }
 
   implicit val instantRowDecoder: RowDecoder[Instant] =
     new RowDecoder[Instant] {
-      override def apply(row: Row, i: Int): Instant = row.getDate(i).toInstant
+      override def apply(row: Row, i: Int): Instant = row.getTimestamp(i).toInstant
     }
 
   implicit val variantRowDecoder: RowDecoder[BigInt] =
