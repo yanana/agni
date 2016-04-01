@@ -1,4 +1,5 @@
 import java.net.InetAddress
+import java.nio.ByteBuffer
 import java.util.UUID
 import java.util.concurrent.ForkJoinPool
 
@@ -6,15 +7,44 @@ import agni._
 import cats.MonadError
 import cats.std.future._
 import cats.data.Xor
-import com.datastax.driver.core.policies.{ DefaultRetryPolicy, ExponentialReconnectionPolicy }
-import com.datastax.driver.core.{ NettyOptions, Cluster, Row }
+import com.datastax.driver.core._
+import com.datastax.driver.core.policies._
 
 import scala.concurrent.{ Future, ExecutionContext, Await }
 import scala.concurrent.duration._
 
+class LongToObjectCodec extends TypeCodec[Object](DataType.bigint(), classOf[Object]) {
+  def serialize(t: Object, protocolVersion: ProtocolVersion): ByteBuffer =
+    TypeCodec.bigint().serialize(
+      t.asInstanceOf[java.lang.Long],
+      protocolVersion
+    )
+  def parse(s: String): Object = s.toLong.asInstanceOf[Object]
+  def format(t: Object): String = t.toString
+  def deserialize(bytes: ByteBuffer, protocolVersion: ProtocolVersion): Object = {
+    val i = TypeCodec.bigint().deserialize(bytes, protocolVersion)
+    if (i == null) null else i.asInstanceOf[Object]
+  }
+}
+
+class AsciiToObjectCodec extends TypeCodec[Object](DataType.ascii(), classOf[Object]) {
+  def serialize(t: Object, protocolVersion: ProtocolVersion): ByteBuffer =
+    TypeCodec.ascii().serialize(
+      t.asInstanceOf[java.lang.String],
+      protocolVersion
+    )
+  def parse(s: String): Object = s.toLong.asInstanceOf[Object]
+  def format(t: Object): String = t.toString
+  def deserialize(bytes: ByteBuffer, protocolVersion: ProtocolVersion): Object = {
+    val i = TypeCodec.ascii().deserialize(bytes, protocolVersion)
+    if (i == null) null else i.asInstanceOf[Object]
+  }
+}
+
 object Main extends App {
 
-  implicit val executionContext = ExecutionContext.fromExecutorService(new ForkJoinPool())
+  implicit val executionContext =
+    ExecutionContext.fromExecutorService(new ForkJoinPool())
 
   case class User(
     id: UUID,
@@ -85,15 +115,21 @@ object Main extends App {
     ret <- selectAll("user")
   } yield ret
 
+  val codecRegistry = CodecRegistry.DEFAULT_INSTANCE
+  codecRegistry.register(new LongToObjectCodec)
+  codecRegistry.register(new AsciiToObjectCodec)
+
   val cluster = Cluster.builder()
     .addContactPoints(InetAddress.getByName("192.168.99.100"))
+    .withCodecRegistry(codecRegistry)
     .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
     .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
     .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
     .build()
 
   try {
-    val MF = implicitly[MonadError[Future, Throwable]]
+
+    val MF = MonadError[Future, Throwable]
 
     val session = cluster.connect("test")
     val f = MF.attempt(action.run(session))
@@ -109,3 +145,4 @@ object Main extends App {
   cluster.close()
 
 }
+

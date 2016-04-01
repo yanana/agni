@@ -1,6 +1,5 @@
 package agni
 
-import cats.data.Xor
 import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
 import scodec.bits.{ BitVector, ByteVector }
 
@@ -26,7 +25,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession[Future, Iterator[A]] { session =>
-      Future(session.execute(query).iterator.asScala.map(RowDecoder[A]))
+      Future(session.execute(query).iterator.asScala.map(x => decoder(x, 0)))
     }
 
   def execute[A](stmt: Statement)(
@@ -35,7 +34,7 @@ object Agni extends Functions {
     ctx: ExecutionContext
   ): Action[Future, Iterator[A]] =
     withSession[Future, Iterator[A]] { session =>
-      Future(session.execute(stmt).iterator.asScala.map(RowDecoder[A]))
+      Future(session.execute(stmt).iterator.asScala.map(x => decoder(x, 0)))
     }
 
   def batchOn(

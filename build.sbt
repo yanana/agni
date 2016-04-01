@@ -15,6 +15,7 @@ val datastaxVersion = "3.0.0"
 val catsVersion = "0.4.1"
 val shapelessVersion = "2.3.0"
 val scalacheckVersion = "1.13.0"
+val scalatestVersion = "2.2.6"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
@@ -26,7 +27,8 @@ lazy val coreDeps = Seq(
 )
 
 lazy val testDeps = Seq(
-  "org.scalacheck" %% "scalacheck" % scalacheckVersion
+  "org.scalacheck" %% "scalacheck" % scalacheckVersion,
+  "org.scalatest" %% "scalatest" % scalatestVersion
 ) map (_ % "test")
 
 lazy val baseSettings = Seq(
@@ -100,8 +102,7 @@ lazy val examples = project.in(file("examples"))
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "1.7.13",
-      "io.netty" % "netty-all" % "5.0.0.Alpha2"
+      "org.slf4j" % "slf4j-simple" % "1.7.13"
     )
   )
   .dependsOn(core)
@@ -121,4 +122,3 @@ lazy val compilerOptions = Seq(
   "-Yinline-warnings",
   "-Xlint"
 )
-
