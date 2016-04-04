@@ -2,6 +2,7 @@ package agni
 
 import java.util
 
+import cats.Id
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Prop._
 import org.scalacheck._
@@ -9,6 +10,8 @@ import scodec.bits.Arbitraries._
 import scodec.bits.ByteVector
 
 class AgniSpec extends Properties("Agni") {
+
+  object Agni extends Agni[Id, Exception]
 
   property("convertStringToJava") = forAll { (a: String) =>
     Agni.convertToJava(a) == a
