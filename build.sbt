@@ -1,8 +1,9 @@
 lazy val root = project.in(file("."))
+  .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, examples)
-  .dependsOn(core, examples)
+  .aggregate(core, `twitter-util`, examples)
+  .dependsOn(core, `twitter-util`, examples)
 
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scalariformSettings
 
@@ -16,6 +17,7 @@ val catsVersion = "0.4.1"
 val shapelessVersion = "2.3.0"
 val scalacheckVersion = "1.13.0"
 val scalatestVersion = "2.2.6"
+val catbirdVersion = "0.3.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
@@ -92,6 +94,21 @@ lazy val core = project.in(file("core"))
   )
   .settings(allSettings: _*)
 
+lazy val `twitter-util` = project.in(file("twitter-util"))
+  .settings(
+    description := "agni twitter-util",
+    moduleName := "agni-twitter-util",
+    name := "twitter-util"
+  )
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "io.catbird" %% "catbird-util" % catbirdVersion
+    )
+  )
+  .dependsOn(core)
+
 lazy val examples = project.in(file("examples"))
   .settings(
     description := "agni examples",
@@ -105,7 +122,7 @@ lazy val examples = project.in(file("examples"))
       "org.slf4j" % "slf4j-simple" % "1.7.13"
     )
   )
-  .dependsOn(core)
+  .dependsOn(core, `twitter-util`)
 
 lazy val compilerOptions = Seq(
   "-deprecation",

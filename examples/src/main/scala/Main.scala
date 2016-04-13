@@ -1,50 +1,22 @@
-import java.net.InetAddress
-import java.nio.ByteBuffer
 import java.util.UUID
-import java.util.concurrent.ForkJoinPool
 
 import agni._
 import cats.MonadError
-import cats.std.future._
 import cats.data.Xor
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies._
+import com.twitter.util.{ Await, Future }
 
-import scala.concurrent.{ Future, ExecutionContext, Await }
-import scala.concurrent.duration._
-
-class LongToObjectCodec extends TypeCodec[Object](DataType.bigint(), classOf[Object]) {
-  def serialize(t: Object, protocolVersion: ProtocolVersion): ByteBuffer =
-    TypeCodec.bigint().serialize(
-      t.asInstanceOf[java.lang.Long],
-      protocolVersion
-    )
-  def parse(s: String): Object = s.toLong.asInstanceOf[Object]
-  def format(t: Object): String = t.toString
-  def deserialize(bytes: ByteBuffer, protocolVersion: ProtocolVersion): Object = {
-    val i = TypeCodec.bigint().deserialize(bytes, protocolVersion)
-    if (i == null) null else i.asInstanceOf[Object]
-  }
-}
-
-class AsciiToObjectCodec extends TypeCodec[Object](DataType.ascii(), classOf[Object]) {
-  def serialize(t: Object, protocolVersion: ProtocolVersion): ByteBuffer =
-    TypeCodec.ascii().serialize(
-      t.asInstanceOf[java.lang.String],
-      protocolVersion
-    )
-  def parse(s: String): Object = s.toLong.asInstanceOf[Object]
-  def format(t: Object): String = t.toString
-  def deserialize(bytes: ByteBuffer, protocolVersion: ProtocolVersion): Object = {
-    val i = TypeCodec.ascii().deserialize(bytes, protocolVersion)
-    if (i == null) null else i.asInstanceOf[Object]
-  }
-}
+// import scala.concurrent.Await
+// import scala.concurrent.ExecutionContext.Implicits.global
+// import scala.concurrent.duration._
+import scala.util.Try
 
 object Main extends App {
 
-  implicit val executionContext =
-    ExecutionContext.fromExecutorService(new ForkJoinPool())
+  import codec._
+  // import agni.std.future._
+  import agni.twitter.util.Future._
 
   case class User(
     id: UUID,
@@ -60,22 +32,13 @@ object Main extends App {
     def apply(s: Row, i: Int): UUID = UUID.fromString(s.getString(i))
   }
 
-  import Agni._
-
   def newId: String = UUID.randomUUID().toString
 
-  val remake: String => Action[Future, Unit] = tableName => for {
+  val remake: String => Action[Unit] = tableName => for {
+    _ <- execute[Unit]("CREATE KEYSPACE IF NOT EXISTS test WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
+    _ <- execute[Unit]("USE test")
     _ <- execute[Unit](s"DROP TABLE IF EXISTS $tableName")
-    _ <- execute[Unit](s"""
-           |CREATE TABLE $tableName (
-           |  id ascii PRIMARY KEY,
-           |  foods set<ascii>,
-           |  first_name ascii,
-           |  last_name ascii,
-           |  age int,
-           |  gender ascii,
-           |  address map<ascii, ascii>
-           |)""".stripMargin)
+    _ <- execute[Unit](s"CREATE TABLE $tableName (id ascii PRIMARY KEY, foods set<ascii>, first_name ascii, last_name ascii, age int, gender ascii, address map<ascii, ascii>)")
   } yield ()
 
   val batchInsert = for {
@@ -105,7 +68,7 @@ object Main extends App {
 
   } yield ()
 
-  val selectAll: String => Action[Future, Iterator[User]] = (table) => for {
+  val selectAll: String => Action[Iterator[User]] = (table) => for {
     ret <- execute[User]("SELECT id, foods, first_name, last_name, age, gender, address FROM user")
   } yield ret
 
@@ -120,29 +83,27 @@ object Main extends App {
   codecRegistry.register(new AsciiToObjectCodec)
 
   val cluster = Cluster.builder()
-    .addContactPoints(InetAddress.getByName("192.168.99.100"))
+    .addContactPoint("192.168.99.100")
     .withCodecRegistry(codecRegistry)
     .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
     .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
     .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
     .build()
 
-  try {
+  val MF = implicitly[MonadError[Future, Throwable]]
 
-    val MF = MonadError[Future, Throwable]
-
-    val session = cluster.connect("test")
+  val result = Try(cluster.connect()).map { session =>
     val f = MF.attempt(action.run(session))
-    val result = Await.result(f, Duration.Inf)
+    // val result = Await.result(f, Duration.Inf)
+    val result = Await.result(f)
     result match {
       case Xor.Right(xs) => xs take 100 foreach println
       case Xor.Left(e) => println(e.getMessage)
     }
-  } catch {
+  } recover {
     case e: Throwable => e.printStackTrace()
   }
 
   cluster.close()
 
 }
-

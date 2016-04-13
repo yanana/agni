@@ -1,64 +1,64 @@
 package agni
 
-import com.datastax.driver.core.{ PreparedStatement, Statement, BatchStatement }
+import cats.{ Eval, MonadError }
+import com.datastax.driver.core._
 import scodec.bits.{ BitVector, ByteVector }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ ExecutionContext, Future }
 
-object Agni extends Functions {
+trait Agni[F[_], E] extends Functions[F] {
+
   // TODO: configurable cache
   val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
-  def lift[A](a: A)(
-    implicit
-    ctx: ExecutionContext
-  ): Action[Future, A] =
-    withSession[Future, A] { session =>
-      Future(a)
+  def lift[A](a: A)(implicit MF: MonadError[F, E]): Action[A] =
+    withSession[A](_ => MF.pure(a))
+
+  def execute[A](query: String)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
+    withSession { session =>
+      MF.pureEval(
+        Eval.now(
+          session.execute(query).iterator.asScala.map(decoder(_, 0))
+        )
+      )
     }
 
-  def execute[A](query: String)(
-    implicit
-    decoder: RowDecoder[A],
-    ctx: ExecutionContext
-  ): Action[Future, Iterator[A]] =
-    withSession[Future, Iterator[A]] { session =>
-      Future(session.execute(query).iterator.asScala.map(x => decoder(x, 0)))
+  def execute[A](stmt: Statement)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
+    withSession { session =>
+      MF.pureEval(Eval.now(session.execute(stmt).iterator.asScala.map(decoder(_, 0))))
     }
 
-  def execute[A](stmt: Statement)(
-    implicit
-    decoder: RowDecoder[A],
-    ctx: ExecutionContext
-  ): Action[Future, Iterator[A]] =
-    withSession[Future, Iterator[A]] { session =>
-      Future(session.execute(stmt).iterator.asScala.map(x => decoder(x, 0)))
+  def batchOn(implicit MF: MonadError[F, E]): Action[BatchStatement] =
+    withSession { _ =>
+      MF.pure(new BatchStatement)
     }
 
-  def batchOn(
-    implicit
-    ctx: ExecutionContext
-  ): Action[Future, BatchStatement] =
-    withSession[Future, BatchStatement] { _ =>
-      Future(new BatchStatement)
+  def prepare(query: String)(implicit MF: MonadError[F, E]): Action[PreparedStatement] =
+    withSession { session =>
+      MF.pureEval(
+        Eval.now(
+          queryCache.getOrElseUpdate(query, session.prepare(query))
+        )
+      )
     }
 
-  def prepare(query: String)(
-    implicit
-    ctx: ExecutionContext
-  ): Action[Future, PreparedStatement] =
-    withSession[Future, PreparedStatement] { session =>
-      Future(queryCache.getOrElseUpdate(query, session.prepare(query)))
+  def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[Unit] =
+    withSession { session =>
+      MF.pureEval(
+        Eval.now(
+          bstmt.add(pstmt.bind(ps.map(convertToJava): _*))
+        )
+      )
     }
 
-  def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(
-    implicit
-    ctx: ExecutionContext
-  ): Action[Future, Unit] =
-    withSession[Future, Unit] { session =>
-      Future(bstmt.add(pstmt.bind(ps.map(convertToJava): _*)))
+  def bind(pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[BoundStatement] =
+    withSession { session =>
+      MF.pureEval(
+        Eval.now(
+          pstmt.bind(ps.map(convertToJava): _*)
+        )
+      )
     }
 
   // TODO: improve implementation
