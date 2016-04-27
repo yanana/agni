@@ -23,6 +23,11 @@ lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
     ExclusionRule(organization = "io.netty")
   ) withSources,
+  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" exclude(
+    "io.netty", "netty-handler"
+  ) exclude(
+    "io.netty", "netty-transport-native-epoll"
+  ) withSources,
   "org.typelevel" %% "cats" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion,
   "org.scodec" %% "scodec-bits" % "1.1.0"
