@@ -14,9 +14,13 @@ import scala.util.Try
 
 object Main extends App {
 
+  object Agni extends Agni[Future, Throwable]
+  import Agni._
+
   import codec._
   // import agni.std.future._
-  import agni.twitter.util.Future._
+  // import agni.twitter.util.Future._
+  import io.catbird.util.futureInstance
 
   case class User(
     id: UUID,
