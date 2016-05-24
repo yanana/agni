@@ -13,12 +13,12 @@ trait Agni[F[_], E] extends Functions[F] {
   val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
   def lift[A](a: A)(implicit MF: MonadError[F, E]): Action[A] =
-    withSession[A](_ => MF.pure(a))
+    withSession[A](_ => MF.pureEval(Eval.later(a)))
 
   def execute[A](query: String)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
     withSession { session =>
       MF.pureEval(
-        Eval.now(
+        Eval.later(
           session.execute(query).iterator.asScala.map(decoder(_, 0))
         )
       )
@@ -26,7 +26,7 @@ trait Agni[F[_], E] extends Functions[F] {
 
   def execute[A](stmt: Statement)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
     withSession { session =>
-      MF.pureEval(Eval.now(session.execute(stmt).iterator.asScala.map(decoder(_, 0))))
+      MF.pureEval(Eval.later(session.execute(stmt).iterator.asScala.map(decoder(_, 0))))
     }
 
   def batchOn(implicit MF: MonadError[F, E]): Action[BatchStatement] =
@@ -37,7 +37,7 @@ trait Agni[F[_], E] extends Functions[F] {
   def prepare(query: String)(implicit MF: MonadError[F, E]): Action[PreparedStatement] =
     withSession { session =>
       MF.pureEval(
-        Eval.now(
+        Eval.later(
           queryCache.getOrElseUpdate(query, session.prepare(query))
         )
       )
@@ -46,7 +46,7 @@ trait Agni[F[_], E] extends Functions[F] {
   def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[Unit] =
     withSession { session =>
       MF.pureEval(
-        Eval.now(
+        Eval.later(
           bstmt.add(pstmt.bind(ps.map(convertToJava): _*))
         )
       )
@@ -55,7 +55,7 @@ trait Agni[F[_], E] extends Functions[F] {
   def bind(pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[BoundStatement] =
     withSession { session =>
       MF.pureEval(
-        Eval.now(
+        Eval.later(
           pstmt.bind(ps.map(convertToJava): _*)
         )
       )
