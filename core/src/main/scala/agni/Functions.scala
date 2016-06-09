@@ -1,9 +1,30 @@
 package agni
 
+import java.util.concurrent.Executor
+
 import cats.data.Kleisli
-import com.datastax.driver.core.Session
+import com.datastax.driver.core.{ ResultSet, ResultSetFuture, Session }
+import com.google.common.util.concurrent.{ FutureCallback, Futures, MoreExecutors }
+
+import scala.collection.JavaConverters._
 
 trait Functions[F[_]] {
   type Action[A] = Kleisli[F, Session, A]
   def withSession[A](f: Session => F[A]): Action[A] = Kleisli(f)
+
+  implicit class ResultSetFuture0(f: ResultSetFuture) {
+    def callback[G[_], A](p: G[A], fa: (G[A], Throwable) => Unit, fb: (G[A], Iterator[A]) => Unit)(
+      implicit
+      decoder: RowDecoder[A],
+      executor: Executor
+    ): G[A] = {
+      Futures.addCallback(f, new FutureCallback[ResultSet] {
+        def onFailure(t: Throwable): Unit =
+          fa(p, t)
+        def onSuccess(result: ResultSet): Unit =
+          fb(p, result.iterator().asScala.map(decoder(_, 0)))
+      }, executor)
+      p
+    }
+  }
 }

@@ -106,7 +106,6 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
     name := "twitter-util"
   )
   .settings(allSettings: _*)
-  .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion
