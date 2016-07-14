@@ -12,10 +12,10 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.8"
 )
 
-val datastaxVersion = "3.0.2"
+val datastaxVersion = "3.0.3"
 val catsVersion = "0.4.1"
-val shapelessVersion = "2.3.0"
-val scalacheckVersion = "1.13.0"
+val shapelessVersion = "2.3.1"
+val scalacheckVersion = "1.13.2"
 val scalatestVersion = "2.2.6"
 val catbirdVersion = "0.3.0"
 
