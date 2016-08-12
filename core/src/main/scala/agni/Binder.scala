@@ -2,7 +2,7 @@ package agni
 
 import com.datastax.driver.core.{ BoundStatement, PreparedStatement }
 import shapeless._
-import ops.hlist._
+import shapeless.ops.hlist._
 
 trait Binder[A] {
   def apply(pstmt: PreparedStatement, a: A): BoundStatement
@@ -40,8 +40,8 @@ trait LowPriorityBinder {
 }
 
 trait TupleBinder {
-  import ops.tuple.{ ToTraversable => _, _ }
-  import syntax.std.tuple._
+  import shapeless.ops.tuple.{ ToTraversable => _, _ }
+  import shapeless.syntax.std.tuple._
 
   implicit def tuple2Binder[A, B, OL <: HList](
     implicit

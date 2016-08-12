@@ -80,6 +80,7 @@ class RowDecoderSpec extends org.scalatest.FunSuite {
   }
 
   test("RowDecoder[Map[String, Date]]") {
+    implicit val date = ColumnGetter.mapColumnGetter[String, Date, Date](identity)
     assertCompiles("RowDecoder[Map[String, Date]]")
   }
 

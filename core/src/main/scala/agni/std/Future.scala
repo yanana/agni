@@ -9,11 +9,7 @@ import scala.concurrent.{ Promise, Future => SFuture }
 
 object Future extends Agni[SFuture, Throwable] {
   type P[A] = Promise[Iterator[A]]
-  def executeAsync[A](query: Statement)(
-    implicit
-    decoder: RowDecoder[A],
-    executor: Executor
-  ): Action[Iterator[A]] =
+  def executeAsync[A: RowDecoder](query: Statement)(implicit ex: Executor): Action[Iterator[A]] =
     withSession { session =>
       session.executeAsync(query).callback[P, A](
         Promise(), _.failure(_), _.success(_)
