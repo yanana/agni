@@ -2,18 +2,19 @@ package agni
 
 import cats.{ Eval, MonadError }
 import com.datastax.driver.core._
-import scodec.bits.{ BitVector, ByteVector }
+import shapeless._, ops.hlist._
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 
-trait Agni[F[_], E] extends Functions[F] {
+abstract class Agni[F[_], E] extends Functions[F] {
+  import Function.const
 
   // TODO: configurable cache
   val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
   def lift[A](a: A)(implicit MF: MonadError[F, E]): Action[A] =
-    withSession[A](_ => MF.pureEval(Eval.later(a)))
+    withSession[A](const(MF.pureEval(Eval.later(a))))
 
   def execute[A](query: String)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
     withSession { session =>
@@ -30,9 +31,7 @@ trait Agni[F[_], E] extends Functions[F] {
     }
 
   def batchOn(implicit MF: MonadError[F, E]): Action[BatchStatement] =
-    withSession { _ =>
-      MF.pure(new BatchStatement)
-    }
+    withSession(const(MF.pure(new BatchStatement)))
 
   def prepare(query: String)(implicit MF: MonadError[F, E]): Action[PreparedStatement] =
     withSession { session =>
@@ -43,43 +42,19 @@ trait Agni[F[_], E] extends Functions[F] {
       )
     }
 
-  def bind(bstmt: BatchStatement, pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[Unit] =
-    withSession { session =>
-      MF.pureEval(
-        Eval.later(
-          bstmt.add(pstmt.bind(ps.map(convertToJava): _*))
-        )
-      )
-    }
+  def bind[H <: HList, O <: HList](bstmt: BatchStatement, pstmt: PreparedStatement, ps: H)(
+    implicit
+    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
+    toTraversableAux: ToTraversable.Aux[O, List, Object],
+    MF: MonadError[F, E]
+  ): Action[Unit] =
+    withSession(const(MF.pureEval(Eval.later(bstmt.add(pstmt.bind(ps.map(scalaToJava).toList[Object]: _*))))))
 
-  def bind(pstmt: PreparedStatement, ps: Any*)(implicit MF: MonadError[F, E]): Action[BoundStatement] =
-    withSession { session =>
-      MF.pureEval(
-        Eval.later(
-          pstmt.bind(ps.map(convertToJava): _*)
-        )
-      )
-    }
-
-  // TODO: improve implementation
-  val convertToJava: Any => Object = {
-    case a: Set[Any] => a.map(convertToJava).asJava: java.util.Set[Object]
-    case a: Seq[Any] => a.map(convertToJava).asJava: java.util.List[Object]
-    case a: Map[Any, Any] => a.map { case (k, v) => (convertToJava(k), convertToJava(v)) }.asJava: java.util.Map[Object, Object]
-    case a: String => a
-    case a: java.nio.ByteBuffer => a
-    case a: Long => a: java.lang.Long
-    case a: Int => a: java.lang.Integer
-    case a: Float => a: java.lang.Float
-    case a: Double => a: java.lang.Double
-    case a: BigDecimal => a.bigDecimal
-    case a: BigInt => a.bigInteger
-    case a: ByteVector => a.toArray
-    case a: BitVector => a.toByteArray
-    case Some(a) => convertToJava(a)
-    case None => null
-    case a: Object => a
-    case a => new RuntimeException(s"uncaught class type $a")
-  }
-
+  def bind[H <: HList, O <: HList](pstmt: PreparedStatement, ps: H)(
+    implicit
+    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
+    toTraversableAux: ToTraversable.Aux[O, List, Object],
+    MF: MonadError[F, E]
+  ): Action[BoundStatement] =
+    withSession(const(MF.pureEval(Eval.later(pstmt.bind(ps.map(scalaToJava).toList[Object]: _*)))))
 }

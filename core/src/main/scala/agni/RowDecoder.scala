@@ -1,8 +1,7 @@
 package agni
 
 import com.datastax.driver.core.Row
-import shapeless._
-import shapeless.labelled._
+import shapeless._, labelled._
 
 import scala.util.Try
 

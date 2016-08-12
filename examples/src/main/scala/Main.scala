@@ -1,26 +1,25 @@
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import agni._
+import agni.twitter.util.Future
 import cats.MonadError
 import cats.data.Xor
+import cats.std.list._
+import cats.syntax.traverse._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies._
-import com.twitter.util.{ Await, Future }
-
-// import scala.concurrent.Await
-// import scala.concurrent.ExecutionContext.Implicits.global
-// import scala.concurrent.duration._
-import scala.util.Try
+import com.twitter.util.{ Await, Try, Future => TFuture }
+import shapeless._
 
 object Main extends App {
 
-  object Agni extends Agni[Future, Throwable]
-  import Agni._
+  import io.catbird.util._
+  import Future._
 
   import codec._
-  // import agni.std.future._
-  // import agni.twitter.util.Future._
-  import io.catbird.util.futureInstance
+
+  implicit val executor = Executors.newWorkStealingPool()
 
   case class User(
     id: UUID,
@@ -29,7 +28,8 @@ object Main extends App {
     last_name: Option[String],
     age: Option[Int],
     gender: Option[String],
-    address: Map[String, String]
+    address: Map[String, String],
+    baba: Option[Vector[Long]]
   )
 
   implicit val uuidParser: RowDecoder[UUID] = new RowDecoder[UUID] {
@@ -42,38 +42,49 @@ object Main extends App {
     _ <- execute[Unit]("CREATE KEYSPACE IF NOT EXISTS test WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
     _ <- execute[Unit]("USE test")
     _ <- execute[Unit](s"DROP TABLE IF EXISTS $tableName")
-    _ <- execute[Unit](s"CREATE TABLE $tableName (id ascii PRIMARY KEY, foods set<ascii>, first_name ascii, last_name ascii, age int, gender ascii, address map<ascii, ascii>)")
+    _ <- execute[Unit](s"""
+      |CREATE TABLE $tableName (
+      |  id ascii PRIMARY KEY,
+      |  foods set<ascii>,
+      |  first_name ascii,
+      |  last_name ascii,
+      |  age int,
+      |  gender ascii,
+      |  address map<ascii, ascii>,
+      |  baba list<bigint>
+      |)""".stripMargin)
   } yield ()
 
-  val batchInsert = for {
-    bstmt <- batchOn
+  val none: Option[Vector[Long]] = None
 
-    pstmt1 <- prepare("INSERT INTO user (id, foods, address) VALUES (?, {}, {})")
+  val batchInsert = for {
+    pstmt1 <- prepare("INSERT INTO user (id, foods, address, baba) VALUES (?, {}, {}, ?)")
 
     id1 <- lift(newId)
-    _ <- bind(bstmt, pstmt1, id1)
+    baba1 <- lift(Vector(1L, 2L, Long.MaxValue))
+    stmt1 <- bind(pstmt1, id1 :: baba1 :: HNil)
 
     id2 <- lift(newId)
-    _ <- bind(bstmt, pstmt1, id2)
-
-    _ <- execute[Unit](bstmt)
+    baba2 <- lift(Vector(-1L, -2L, Long.MinValue))
+    stmt2 <- bind(pstmt1, id2 :: none :: HNil)
 
     pstmt2 <- prepare("UPDATE user SET foods = foods + ? WHERE id = ?")
 
     foods <- lift(Set("Banana"))
-    _ <- bind(bstmt, pstmt2, foods, id1)
+    stmt2 <- bind(pstmt2, foods :: id1 :: HNil)
 
     pstmt2 <- prepare("UPDATE user SET address = address + ? WHERE id = ?")
 
     address <- lift(Map("zip_code" -> "001-0001", "country" -> "Japan"))
-    _ <- bind(bstmt, pstmt2, address, id2)
+    stmt3 <- bind(pstmt2, address :: id2 :: HNil)
 
-    _ <- execute[Unit](bstmt)
+    stmts <- lift(stmt1 :: stmt2 :: stmt3 :: Nil)
+    _ <- stmts.traverse(executeAsync[Unit])
 
   } yield ()
 
   val selectAll: String => Action[Iterator[User]] = (table) => for {
-    ret <- execute[User]("SELECT id, foods, first_name, last_name, age, gender, address FROM user")
+    ret <- execute[User]("SELECT id, foods, first_name, last_name, age, gender, address, baba FROM user")
   } yield ret
 
   val action = for {
@@ -87,24 +98,24 @@ object Main extends App {
   codecRegistry.register(new AsciiToObjectCodec)
 
   val cluster = Cluster.builder()
-    .addContactPoint("192.168.99.100")
+    .addContactPoint(args(0))
+    .withPort(args(1).toInt)
     .withCodecRegistry(codecRegistry)
     .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
     .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
     .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
     .build()
 
-  val MF = implicitly[MonadError[Future, Throwable]]
+  val F = implicitly[MonadError[TFuture, Throwable]]
 
-  val result = Try(cluster.connect()).map { session =>
-    val f = MF.attempt(action.run(session))
-    // val result = Await.result(f, Duration.Inf)
+  Try(cluster.connect()) map { session =>
+    val f = F.attempt(action.run(session))
     val result = Await.result(f)
     result match {
       case Xor.Right(xs) => xs take 100 foreach println
-      case Xor.Left(e) => println(e.getMessage)
+      case Xor.Left(e) => e.printStackTrace()
     }
-  } recover {
+  } handle {
     case e: Throwable => e.printStackTrace()
   }
 
