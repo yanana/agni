@@ -12,7 +12,7 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.8"
 )
 
-val datastaxVersion = "3.0.3"
+val datastaxVersion = "3.1.0"
 val catsVersion = "0.4.1"
 val shapelessVersion = "2.3.1"
 val scalacheckVersion = "1.13.2"
@@ -20,18 +20,11 @@ val scalatestVersion = "2.2.6"
 val catbirdVersion = "0.3.0"
 
 lazy val coreDeps = Seq(
-  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" excludeAll(
-    ExclusionRule(organization = "io.netty")
-  ) withSources,
-  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion classifier "shaded" exclude(
-    "io.netty", "netty-handler"
-  ) exclude(
-    "io.netty", "netty-transport-native-epoll"
-  ) withSources,
+  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
   "org.typelevel" %% "cats" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion,
   "org.scodec" %% "scodec-bits" % "1.1.0"
-)
+) map (_.withSources)
 
 lazy val testDeps = Seq(
   "org.scalacheck" %% "scalacheck" % scalacheckVersion,
