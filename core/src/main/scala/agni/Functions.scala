@@ -4,7 +4,7 @@ import java.util.concurrent.Executor
 
 import cats.data.Kleisli
 import com.datastax.driver.core.{ ResultSet, ResultSetFuture, Session }
-import com.google.common.util.concurrent.{ FutureCallback, Futures, MoreExecutors }
+import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
 import scala.collection.JavaConverters._
 

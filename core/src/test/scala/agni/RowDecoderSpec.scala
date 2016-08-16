@@ -7,8 +7,7 @@ import java.util.{ Date, UUID }
 
 import com.datastax.driver.core.{ LocalDate, TupleValue, UDTValue, Row }
 import scodec.bits.{ BitVector, ByteVector }
-import shapeless._
-import shapeless.record._, syntax._, singleton._
+import shapeless._, syntax._, record._
 
 class RowDecoderSpec extends org.scalatest.FunSuite {
 
