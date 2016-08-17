@@ -2,21 +2,15 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 import agni._
-import agni.twitter.util.Future
+import agni.twitter.util.Future._
 import cats.MonadError
 import cats.data.Xor
-import cats.std.list._
-import cats.syntax.traverse._
-import com.datastax.driver.core._
-import com.datastax.driver.core.policies._
+import com.datastax.driver.core._, querybuilder.{ QueryBuilder => Q, _ }, policies._
 import com.twitter.util.{ Await, Try, Future => TFuture }
+import io.catbird.util._
 import shapeless._
 
 object Main extends App {
-
-  import io.catbird.util._
-  import Future._
-
   import codec._
 
   implicit val executor = Executors.newWorkStealingPool()
@@ -32,19 +26,18 @@ object Main extends App {
     baba: Option[Vector[Long]]
   )
 
-  implicit val uuidParser: RowDecoder[UUID] = new RowDecoder[UUID] {
-    def apply(s: Row, i: Int): UUID = UUID.fromString(s.getString(i))
-  }
+  def newId = UUID.randomUUID()
 
-  def newId: String = UUID.randomUUID().toString
-
-  val remake: String => Action[Unit] = tableName => for {
-    _ <- execute[Unit]("CREATE KEYSPACE IF NOT EXISTS test WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }")
-    _ <- execute[Unit]("USE test")
-    _ <- execute[Unit](s"DROP TABLE IF EXISTS $tableName")
+  val remake: Action[Unit] = for {
     _ <- execute[Unit](s"""
-      |CREATE TABLE $tableName (
-      |  id ascii PRIMARY KEY,
+      |CREATE KEYSPACE IF NOT EXISTS test
+      |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+      |""".stripMargin)
+    _ <- execute[Unit]("USE test")
+    _ <- execute[Unit](s"DROP TABLE IF EXISTS user")
+    _ <- execute[Unit](s"""
+      |CREATE TABLE user (
+      |  id uuid PRIMARY KEY,
       |  foods set<ascii>,
       |  first_name ascii,
       |  last_name ascii,
@@ -55,42 +48,48 @@ object Main extends App {
       |)""".stripMargin)
   } yield ()
 
-  val none: Option[Vector[Long]] = None
+  case class Temp(
+    id: UUID,
+    foods: Set[String] = Set.empty,
+    address: Map[String, String] = Map.empty,
+    baba: Vector[Long] = Vector.empty
+  )
+
+  val insertUser = Q.insertInto("user")
+    .value("id", Q.bindMarker())
+    .value("foods", Q.bindMarker())
+    .value("address", Q.bindMarker())
+    .value("baba", Q.bindMarker())
+
+  val selectUser = Q.select("id", "foods", "first_name", "last_name", "age", "gender", "address", "baba").from("user")
 
   val batchInsert = for {
-    pstmt1 <- prepare("INSERT INTO user (id, foods, address, baba) VALUES (?, {}, {}, ?)")
+    pstmt1 <- prepare(insertUser.toString)
 
     id1 <- lift(newId)
     baba1 <- lift(Vector(1L, 2L, Long.MaxValue))
-    stmt1 <- bind(pstmt1, id1 :: baba1 :: HNil)
+    stmt1 <- bind(pstmt1, id1 :: Set("Banana") :: Map.empty[String, String] :: baba1 :: HNil)
+    _ <- execute[Unit](stmt1)
 
     id2 <- lift(newId)
     baba2 <- lift(Vector(-1L, -2L, Long.MinValue))
-    stmt2 <- bind(pstmt1, id2 :: none :: HNil)
+    stmt2 <- bind(pstmt1, Temp(id = id2, baba = baba2))
+    _ <- execute[Unit](stmt2)
 
-    pstmt2 <- prepare("UPDATE user SET foods = foods + ? WHERE id = ?")
-
-    foods <- lift(Set("Banana"))
-    stmt2 <- bind(pstmt2, foods :: id1 :: HNil)
-
-    pstmt2 <- prepare("UPDATE user SET address = address + ? WHERE id = ?")
-
-    address <- lift(Map("zip_code" -> "001-0001", "country" -> "Japan"))
-    stmt3 <- bind(pstmt2, address :: id2 :: HNil)
-
-    stmts <- lift(stmt1 :: stmt2 :: stmt3 :: Nil)
-    _ <- stmts.traverse(executeAsync[Unit])
-
+    id3 <- lift(newId)
+    baba3 <- lift(Vector.empty[Long])
+    stmt3 <- bind(pstmt1, (id3, Set("Sushi", "Apple"), Map("zip_code" -> "001-0001"), baba3))
+    _ <- execute[Unit](stmt2)
   } yield ()
 
-  val selectAll: String => Action[Iterator[User]] = (table) => for {
-    ret <- execute[User]("SELECT id, foods, first_name, last_name, age, gender, address, baba FROM user")
+  val selectAll: Action[Iterator[User]] = for {
+    ret <- execute[User](selectUser.toString)
   } yield ret
 
   val action = for {
-    _ <- remake("user")
+    _ <- remake
     _ <- batchInsert
-    ret <- selectAll("user")
+    ret <- selectAll
   } yield ret
 
   val codecRegistry = CodecRegistry.DEFAULT_INSTANCE
@@ -101,9 +100,6 @@ object Main extends App {
     .addContactPoint(args(0))
     .withPort(args(1).toInt)
     .withCodecRegistry(codecRegistry)
-    .withRetryPolicy(DefaultRetryPolicy.INSTANCE)
-    .withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 5000))
-    .withNettyOptions(NettyOptions.DEFAULT_INSTANCE)
     .build()
 
   val F = implicitly[MonadError[TFuture, Throwable]]
@@ -111,14 +107,13 @@ object Main extends App {
   Try(cluster.connect()) map { session =>
     val f = F.attempt(action.run(session))
     val result = Await.result(f)
-    result match {
-      case Xor.Right(xs) => xs take 100 foreach println
-      case Xor.Left(e) => e.printStackTrace()
-    }
+    result fold (
+      e => e.printStackTrace(),
+      xs => xs take 100 foreach println
+    )
   } handle {
     case e: Throwable => e.printStackTrace()
   }
 
   cluster.close()
-
 }
