@@ -18,11 +18,7 @@ abstract class Agni[F[_], E] extends Functions[F] {
 
   def execute[A](query: String)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
     withSession { session =>
-      MF.pureEval(
-        Eval.later(
-          session.execute(query).iterator.asScala.map(decoder(_, 0))
-        )
-      )
+      MF.pureEval(Eval.later(session.execute(query).iterator.asScala.map(decoder(_, 0))))
     }
 
   def execute[A](stmt: Statement)(implicit decoder: RowDecoder[A], MF: MonadError[F, E]): Action[Iterator[A]] =
@@ -35,26 +31,20 @@ abstract class Agni[F[_], E] extends Functions[F] {
 
   def prepare(query: String)(implicit MF: MonadError[F, E]): Action[PreparedStatement] =
     withSession { session =>
-      MF.pureEval(
-        Eval.later(
-          queryCache.getOrElseUpdate(query, session.prepare(query))
-        )
-      )
+      MF.pureEval(Eval.later(queryCache.getOrElseUpdate(query, session.prepare(query))))
     }
 
-  def bind[H <: HList, O <: HList](bstmt: BatchStatement, pstmt: PreparedStatement, ps: H)(
+  def bind[A](bstmt: BatchStatement, pstmt: PreparedStatement, a: A)(
     implicit
-    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
-    toTraversableAux: ToTraversable.Aux[O, List, Object],
+    B: Binder[A],
     MF: MonadError[F, E]
   ): Action[Unit] =
-    withSession(const(MF.pureEval(Eval.later(bstmt.add(pstmt.bind(ps.map(scalaToJava).toList[Object]: _*))))))
+    withSession(const(MF.pureEval(Eval.later(bstmt.add(B(pstmt, a))))))
 
-  def bind[H <: HList, O <: HList](pstmt: PreparedStatement, ps: H)(
+  def bind[A](pstmt: PreparedStatement, a: A)(
     implicit
-    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
-    toTraversableAux: ToTraversable.Aux[O, List, Object],
+    B: Binder[A],
     MF: MonadError[F, E]
   ): Action[BoundStatement] =
-    withSession(const(MF.pureEval(Eval.later(pstmt.bind(ps.map(scalaToJava).toList[Object]: _*)))))
+    withSession(const(MF.pureEval(Eval.later(B(pstmt, a)))))
 }
