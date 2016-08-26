@@ -6,6 +6,7 @@ import java.time.Instant
 import java.util.{ Date, UUID }
 
 import com.datastax.driver.core._
+import com.google.common.reflect.TypeToken
 import scodec.bits.{ BitVector, ByteVector }
 
 import scala.collection.JavaConversions._
@@ -50,6 +51,7 @@ trait LowPriorityColumnGetter {
     new ColumnGetter[BigDecimal] {
       def apply(row: Row, i: Int): BigDecimal = row.getDecimal(i)
     }
+
   implicit val uuidColumnGetter: ColumnGetter[UUID] =
     new ColumnGetter[UUID] {
       def apply(row: Row, i: Int): UUID = row.getUUID(i)
@@ -100,45 +102,9 @@ trait LowPriorityColumnGetter {
       def apply(row: Row, i: Int): Instant = row.getTimestamp(i).toInstant
     }
 
-  implicit val variantColumnGetter: ColumnGetter[BigInt] =
+  implicit val varintColumnGetter: ColumnGetter[BigInt] =
     new ColumnGetter[BigInt] {
       def apply(row: Row, i: Int): BigInt = row.getVarint(i)
-    }
-
-  implicit def seqColumnGetter[A](implicit tag: ClassTag[A]): ColumnGetter[Seq[A]] =
-    new ColumnGetter[Seq[A]] {
-      def apply(row: Row, i: Int): Seq[A] =
-        row.getList(i, classOf[Any]).map(_.asInstanceOf[A])
-    }
-
-  implicit def vectorColumnGetter[A](implicit tag: ClassTag[A]): ColumnGetter[Vector[A]] =
-    new ColumnGetter[Vector[A]] {
-      def apply(row: Row, i: Int): Vector[A] =
-        row.getList(i, classOf[Any]).map(_.asInstanceOf[A]).toVector
-    }
-
-  implicit def listColumnGetter[A](implicit tag: ClassTag[A]): ColumnGetter[List[A]] =
-    new ColumnGetter[List[A]] {
-      def apply(row: Row, i: Int): List[A] =
-        row.getList(i, classOf[Any]).map(_.asInstanceOf[A]).toList
-    }
-
-  implicit def setColumnGetter[A](implicit tag: ClassTag[A]): ColumnGetter[Set[A]] =
-    new ColumnGetter[Set[A]] {
-      def apply(row: Row, i: Int): Set[A] =
-        row.getSet(i, classOf[Any]).map(_.asInstanceOf[A]).toSet
-    }
-
-  implicit def mapColumnGetter[K, V](
-    implicit
-    keyTag: ClassTag[K],
-    valTag: ClassTag[V]
-  ): ColumnGetter[Map[K, V]] =
-    new ColumnGetter[Map[K, V]] {
-      def apply(row: Row, i: Int): Map[K, V] = {
-        val x = row.getMap(i, classOf[Any], classOf[Any]) map { case (k, v) => (k.asInstanceOf[K], v.asInstanceOf[V]) }
-        x.toMap
-      }
     }
 
   implicit val udtValueColumnGetter: ColumnGetter[UDTValue] =
@@ -150,4 +116,80 @@ trait LowPriorityColumnGetter {
     new ColumnGetter[TupleValue] {
       def apply(row: Row, i: Int): TupleValue = row.getTupleValue(i)
     }
+
+  def streamColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): ColumnGetter[Stream[A0]] =
+    new ColumnGetter[Stream[A0]] {
+      def apply(row: Row, i: Int): Stream[A0] =
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toStream.map(f)
+    }
+
+  def seqColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): ColumnGetter[Seq[A0]] =
+    new ColumnGetter[Seq[A0]] {
+      def apply(row: Row, i: Int): Seq[A0] =
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).map(_.asInstanceOf[A0])
+    }
+
+  def vectorColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): ColumnGetter[Vector[A0]] =
+    new ColumnGetter[Vector[A0]] {
+      def apply(row: Row, i: Int): Vector[A0] =
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toVector.map(_.asInstanceOf[A0])
+    }
+
+  def listColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): ColumnGetter[List[A0]] =
+    new ColumnGetter[List[A0]] {
+      def apply(row: Row, i: Int): List[A0] =
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toList.map(f)
+    }
+
+  def setColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): ColumnGetter[Set[A0]] =
+    new ColumnGetter[Set[A0]] {
+      def apply(row: Row, i: Int): Set[A0] = {
+        val x: Set[A] = row.getSet(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toSet
+        x.map(f)
+      }
+    }
+
+  def mapColumnGetter[K, V, V0](f: V => V0)(
+    implicit
+    keyTag: ClassTag[K],
+    valTag: ClassTag[V]
+  ): ColumnGetter[Map[K, V0]] =
+    new ColumnGetter[Map[K, V0]] {
+      def apply(row: Row, i: Int): Map[K, V0] =
+        row.getMap(
+          i,
+          TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
+          TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
+        ).toMap.mapValues(f)
+    }
+
+  implicit val setS = setColumnGetter[String, String](identity)
+  implicit val setI = setColumnGetter[java.lang.Integer, Int](_.toInt)
+  implicit val setL = setColumnGetter[java.lang.Long, Long](_.toLong)
+  implicit val setD = setColumnGetter[java.lang.Double, Double](_.toDouble)
+  implicit val setF = setColumnGetter[java.lang.Float, Float](_.toFloat)
+
+  implicit val listS = listColumnGetter[String, String](identity)
+  implicit val listI = listColumnGetter[java.lang.Integer, Int](_.toInt)
+  implicit val listL = listColumnGetter[java.lang.Long, Long](_.toLong)
+  implicit val listD = listColumnGetter[java.lang.Double, Double](_.toDouble)
+  implicit val listF = listColumnGetter[java.lang.Float, Float](_.toFloat)
+
+  implicit val vecS = vectorColumnGetter[String, String](identity)
+  implicit val vecI = vectorColumnGetter[java.lang.Integer, Int](_.toInt)
+  implicit val vecL = vectorColumnGetter[java.lang.Long, Long](_.toLong)
+  implicit val vecD = vectorColumnGetter[java.lang.Double, Double](_.toDouble)
+  implicit val vecF = vectorColumnGetter[java.lang.Float, Float](_.toFloat)
+
+  implicit val streamS = streamColumnGetter[String, String](identity)
+  implicit val streamI = streamColumnGetter[java.lang.Integer, Int](_.toInt)
+  implicit val streamL = streamColumnGetter[java.lang.Long, Long](_.toLong)
+  implicit val streamD = streamColumnGetter[java.lang.Double, Double](_.toDouble)
+  implicit val streamF = streamColumnGetter[java.lang.Float, Float](_.toFloat)
+
+  implicit val mapSS = mapColumnGetter[String, String, String](identity)
+  implicit val mapSI = mapColumnGetter[String, java.lang.Integer, Int](_.toInt)
+  implicit val mapSL = mapColumnGetter[String, java.lang.Long, Long](_.toLong)
+  implicit val mapSD = mapColumnGetter[String, java.lang.Double, Double](_.toDouble)
+  implicit val mapSF = mapColumnGetter[String, java.lang.Float, Float](_.toFloat)
 }

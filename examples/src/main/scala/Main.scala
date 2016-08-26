@@ -1,3 +1,4 @@
+import java.math.BigInteger
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -10,10 +11,15 @@ import com.twitter.util.{ Await, Try, Future => TFuture }
 import io.catbird.util._
 import shapeless._
 
+import scala.collection.JavaConverters._
+
 object Main extends App {
-  import codec._
+  import io.catbird.util._
 
   implicit val executor = Executors.newWorkStealingPool()
+
+  implicit val listBigInt =
+    ColumnGetter.listColumnGetter[java.math.BigInteger, BigInt](BigInt(_))
 
   case class User(
     id: UUID,
@@ -23,7 +29,8 @@ object Main extends App {
     age: Option[Int],
     gender: Option[String],
     address: Map[String, String],
-    baba: Option[Vector[Long]]
+    baba: Option[Vector[Long]],
+    xs: List[BigInt]
   )
 
   def newId = UUID.randomUUID()
@@ -44,7 +51,8 @@ object Main extends App {
       |  age int,
       |  gender ascii,
       |  address map<ascii, ascii>,
-      |  baba list<bigint>
+      |  baba list<bigint>,
+      |  xs list<varint>
       |)""".stripMargin)
   } yield ()
 
@@ -52,7 +60,8 @@ object Main extends App {
     id: UUID,
     foods: Set[String] = Set.empty,
     address: Map[String, String] = Map.empty,
-    baba: Vector[Long] = Vector.empty
+    baba: Vector[Long] = Vector.empty,
+    xs: List[BigInt] = List.empty
   )
 
   val insertUser = Q.insertInto("user")
@@ -60,15 +69,20 @@ object Main extends App {
     .value("foods", Q.bindMarker())
     .value("address", Q.bindMarker())
     .value("baba", Q.bindMarker())
+    .value("xs", Q.bindMarker())
 
-  val selectUser = Q.select("id", "foods", "first_name", "last_name", "age", "gender", "address", "baba").from("user")
+  val selectUser = Q.select(
+    "id", "foods", "first_name", "last_name",
+    "age", "gender", "address", "baba", "xs"
+  ).from("user")
 
   val batchInsert = for {
     pstmt1 <- prepare(insertUser.toString)
 
     id1 <- lift(newId)
     baba1 <- lift(Vector(1L, 2L, Long.MaxValue))
-    stmt1 <- bind(pstmt1, id1 :: Set("Banana") :: Map.empty[String, String] :: baba1 :: HNil)
+    xs1 <- lift(List(BigInt(10)))
+    stmt1 <- bind(pstmt1, id1 :: Set("Banana") :: Map.empty[String, String] :: baba1 :: xs1 :: HNil)
     _ <- execute[Unit](stmt1)
 
     id2 <- lift(newId)
@@ -78,8 +92,8 @@ object Main extends App {
 
     id3 <- lift(newId)
     baba3 <- lift(Vector.empty[Long])
-    stmt3 <- bind(pstmt1, (id3, Set("Sushi", "Apple"), Map("zip_code" -> "001-0001"), baba3))
-    _ <- execute[Unit](stmt2)
+    stmt3 <- bind(pstmt1, (id3, Set("Sushi", "Apple"), Map("zip_code" -> "001-0001"), baba3, List.empty[BigInt]))
+    _ <- execute[Unit](stmt3)
   } yield ()
 
   val selectAll: Action[Iterator[User]] = for {
@@ -92,14 +106,9 @@ object Main extends App {
     ret <- selectAll
   } yield ret
 
-  val codecRegistry = CodecRegistry.DEFAULT_INSTANCE
-  codecRegistry.register(new LongToObjectCodec)
-  codecRegistry.register(new AsciiToObjectCodec)
-
   val cluster = Cluster.builder()
     .addContactPoint(args(0))
     .withPort(args(1).toInt)
-    .withCodecRegistry(codecRegistry)
     .build()
 
   val F = implicitly[MonadError[TFuture, Throwable]]

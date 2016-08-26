@@ -13,17 +13,15 @@ trait Functions[F[_]] {
   def withSession[A](f: Session => F[A]): Action[A] = Kleisli(f)
 
   implicit class ResultSetFuture0(f: ResultSetFuture) {
-    def callback[G[_], A](p: G[A], fa: (G[A], Throwable) => Unit, fb: (G[A], Iterator[A]) => Unit)(
+    import syntax._
+    def callback[G[_], A: RowDecoder](p: G[A], fa: (G[A], Throwable) => Unit, fb: (G[A], Iterator[A]) => Unit)(
       implicit
-      decoder: RowDecoder[A],
-      executor: Executor
+      ex: Executor
     ): G[A] = {
       Futures.addCallback(f, new FutureCallback[ResultSet] {
-        def onFailure(t: Throwable): Unit =
-          fa(p, t)
-        def onSuccess(result: ResultSet): Unit =
-          fb(p, result.iterator().asScala.map(decoder(_, 0)))
-      }, executor)
+        def onFailure(t: Throwable): Unit = fa(p, t)
+        def onSuccess(result: ResultSet): Unit = fb(p, result.iterator().asScala.map(_.decode(0)))
+      }, ex)
       p
     }
   }
