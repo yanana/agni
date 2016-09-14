@@ -1,51 +1,52 @@
 package agni
 
 import cats.{ Eval, MonadError }
-import com.datastax.driver.core._
-import shapeless._, ops.hlist._
+import com.datastax.driver.core.{ BatchStatement, BoundStatement, PreparedStatement, Statement }
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 
-abstract class Agni[F[_], E] extends Functions[F] {
+abstract class Agni[F[_], E <: Throwable](
+    implicit
+    F: MonadError[F, E],
+    ev: Throwable <:< E
+) extends Functions[F] {
   import Function.const
   import syntax._
 
   // TODO: configurable cache
   val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
-  def lift[A](a: A)(implicit MF: MonadError[F, E]): Action[A] =
-    withSession[A](const(MF.pureEval(Eval.later(a))))
+  def lift[A](a: A): Action[A] =
+    withSession[A](const(F.pure(a)))
 
-  def execute[A: RowDecoder](query: String)(implicit MF: MonadError[F, E]): Action[Iterator[A]] =
+  def execute[A: RowDecoder](query: String): Action[Iterator[A]] =
     withSession { session =>
-      MF.pureEval(Eval.later(session.execute(query).iterator.asScala.map(_.decode(0))))
+      F.catchNonFatalEval(Eval.later(session.execute(query).iterator.asScala.map(_.decode(0))))
     }
 
-  def execute[A: RowDecoder](stmt: Statement)(implicit MF: MonadError[F, E]): Action[Iterator[A]] =
+  def execute[A: RowDecoder](stmt: Statement): Action[Iterator[A]] =
     withSession { session =>
-      MF.pureEval(Eval.later(session.execute(stmt).iterator.asScala.map(_.decode(0))))
+      F.catchNonFatalEval(Eval.later(session.execute(stmt).iterator.asScala.map(_.decode(0))))
     }
 
-  def batchOn(implicit MF: MonadError[F, E]): Action[BatchStatement] =
-    withSession(const(MF.pure(new BatchStatement)))
+  val batchOn: Action[BatchStatement] =
+    withSession(const(F.pure(new BatchStatement)))
 
-  def prepare(query: String)(implicit MF: MonadError[F, E]): Action[PreparedStatement] =
+  def prepare(query: String): Action[PreparedStatement] =
     withSession { session =>
-      MF.pureEval(Eval.later(queryCache.getOrElseUpdate(query, session.prepare(query))))
+      F.catchNonFatalEval(Eval.later(queryCache.getOrElseUpdate(query, session.prepare(query))))
     }
 
   def bind[A](bstmt: BatchStatement, pstmt: PreparedStatement, a: A)(
     implicit
-    B: Binder[A],
-    MF: MonadError[F, E]
+    A: Binder[A]
   ): Action[Unit] =
-    withSession(const(MF.pureEval(Eval.later(bstmt.add(B(pstmt, a))))))
+    withSession(const(F.pure(bstmt.add(A(pstmt, a)))))
 
   def bind[A](pstmt: PreparedStatement, a: A)(
     implicit
-    B: Binder[A],
-    MF: MonadError[F, E]
+    A: Binder[A]
   ): Action[BoundStatement] =
-    withSession(const(MF.pureEval(Eval.later(B(pstmt, a)))))
+    withSession(const(F.catchNonFatal(A(pstmt, a))))
 }

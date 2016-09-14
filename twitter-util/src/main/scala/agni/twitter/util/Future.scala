@@ -3,6 +3,7 @@ package twitter.util
 
 import java.util.concurrent.Executor
 
+import io.catbird.util._
 import com.datastax.driver.core.Statement
 import com.twitter.util.{ Promise, Future => TFuture }
 

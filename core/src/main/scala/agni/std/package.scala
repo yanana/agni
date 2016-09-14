@@ -1,5 +1,3 @@
 package agni
 
-package object std {
-
-}
+package object std

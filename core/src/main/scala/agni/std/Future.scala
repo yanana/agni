@@ -3,11 +3,12 @@ package std
 
 import java.util.concurrent.Executor
 
+import cats.instances.future._
 import com.datastax.driver.core.Statement
 
-import scala.concurrent.{ Promise, Future => SFuture }
+import scala.concurrent.{ ExecutionContext, Promise, Future => SFuture }
 
-object Future extends Agni[SFuture, Throwable] {
+abstract class Future(implicit ec: ExecutionContext) extends Agni[SFuture, Throwable] {
   type P[A] = Promise[Iterator[A]]
   def executeAsync[A: RowDecoder](query: Statement)(implicit ex: Executor): Action[Iterator[A]] =
     withSession { session =>

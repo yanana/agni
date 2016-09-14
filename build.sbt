@@ -13,11 +13,11 @@ lazy val buildSettings = Seq(
 )
 
 val datastaxVersion = "3.1.0"
-val catsVersion = "0.4.1"
-val shapelessVersion = "2.3.1"
+val catsVersion = "0.7.0"
+val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.2"
-val scalatestVersion = "2.2.6"
-val catbirdVersion = "0.3.0"
+val scalatestVersion = "3.0.0"
+val catbirdVersion = "0.7.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
