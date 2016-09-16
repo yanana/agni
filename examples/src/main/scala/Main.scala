@@ -1,17 +1,12 @@
-import java.math.BigInteger
 import java.util.UUID
 import java.util.concurrent.Executors
 
 import agni._
 import agni.twitter.util.Future._
 import cats.MonadError
-import cats.data.Xor
-import com.datastax.driver.core._, querybuilder.{ QueryBuilder => Q, _ }, policies._
+import com.datastax.driver.core._, querybuilder.{ QueryBuilder => Q, _ }
 import com.twitter.util.{ Await, Try, Future => TFuture }
-import io.catbird.util._
 import shapeless._
-
-import scala.collection.JavaConverters._
 
 object Main extends App {
   import io.catbird.util._
