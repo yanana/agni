@@ -6,7 +6,7 @@ import com.datastax.driver.core.{ BatchStatement, BoundStatement, PreparedStatem
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 
-abstract class Agni[F[_], E <: Throwable](
+abstract class Agni[F[_], E](
     implicit
     F: MonadError[F, E],
     ev: Throwable <:< E
@@ -22,12 +22,12 @@ abstract class Agni[F[_], E <: Throwable](
 
   def execute[A: RowDecoder](query: String): Action[Iterator[A]] =
     withSession { session =>
-      F.catchNonFatalEval(Eval.later(session.execute(query).iterator.asScala.map(_.decode(0))))
+      F.catchNonFatalEval(Eval.later(session.execute(query).iterator.asScala.map(_.decode)))
     }
 
   def execute[A: RowDecoder](stmt: Statement): Action[Iterator[A]] =
     withSession { session =>
-      F.catchNonFatalEval(Eval.later(session.execute(stmt).iterator.asScala.map(_.decode(0))))
+      F.catchNonFatalEval(Eval.later(session.execute(stmt).iterator.asScala.map(_.decode)))
     }
 
   val batchOn: Action[BatchStatement] =
