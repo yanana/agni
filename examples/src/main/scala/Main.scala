@@ -1,7 +1,6 @@
 import java.util.UUID
 import java.util.concurrent.Executors
 
-import agni._
 import agni.twitter.util.Future._
 import cats.MonadError
 import com.datastax.driver.core._, querybuilder.{ QueryBuilder => Q, _ }
@@ -13,9 +12,6 @@ object Main extends App {
 
   implicit val executor = Executors.newWorkStealingPool()
 
-  implicit val listBigInt =
-    ColumnGetter.listColumnGetter[java.math.BigInteger, BigInt](BigInt(_))
-
   case class User(
     id: UUID,
     foods: Set[String],
@@ -24,8 +20,7 @@ object Main extends App {
     age: Option[Int],
     gender: Option[String],
     address: Map[String, String],
-    baba: Option[Vector[Long]],
-    xs: List[BigInt]
+    baba: Option[Vector[Long]]
   )
 
   def newId = UUID.randomUUID()

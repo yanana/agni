@@ -20,7 +20,7 @@ trait Functions[F[_]] {
     ): G[A] = {
       Futures.addCallback(f, new FutureCallback[ResultSet] {
         def onFailure(t: Throwable): Unit = fa(p, t)
-        def onSuccess(result: ResultSet): Unit = fb(p, result.iterator().asScala.map(_.decode(0)))
+        def onSuccess(result: ResultSet): Unit = fb(p, result.iterator().asScala.map(_.decode))
       }, ex)
       p
     }

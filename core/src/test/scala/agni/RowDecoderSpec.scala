@@ -11,7 +11,7 @@ import shapeless._, syntax._, record._
 
 class RowDecoderSpec extends org.scalatest.FunSuite {
 
-  type A = Record.`'foo -> Int, 'bar -> Double, 'quux -> Quux`.T
+  type A = Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`.T
 
   case class Quux(a: Int, b: Option[String], c: Map[String, String])
 
@@ -80,8 +80,16 @@ class RowDecoderSpec extends org.scalatest.FunSuite {
   }
 
   test("RowDecoder[Map[String, Date]]") {
-    implicit val date = ColumnGetter.mapColumnGetter[String, Date, Date](identity)
+    implicit val date = IndexedColumnGetter.mapColumnGetter[String, Date, Date](identity)
     assertCompiles("RowDecoder[Map[String, Date]]")
+  }
+
+  test("RowDecoder[Quux]") {
+    assertCompiles("RowDecoder[Quux]")
+  }
+
+  test("RowDecoder[Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`]") {
+    assertCompiles("RowDecoder[A]")
   }
 
   test("RowDecoder[UDTValue]") {
@@ -182,13 +190,5 @@ class RowDecoderSpec extends org.scalatest.FunSuite {
 
   test("RowDecoderT22[(Int, Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
     assertCompiles("RowDecoder[(Int, Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoder[Quux]") {
-    assertCompiles("RowDecoder[Quux]")
-  }
-
-  test("RowDecoder[Record.`'foo -> Int, 'bar -> Double, 'quux -> Quux`]") {
-    assertCompiles("RowDecoder[A]")
   }
 }
