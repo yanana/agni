@@ -8,7 +8,7 @@ import java.util.{ Date, UUID }
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 trait IndexedColumnGetter[+T] {
@@ -112,7 +112,7 @@ object IndexedColumnGetter extends LowPriorityIndexedColumnGetter {
           i,
           TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
           TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
-        ).toMap.mapValues(f)
+        ).asScala.toMap.mapValues(f)
     }
 
   implicit val setS: IndexedColumnGetter[Set[String]] = setColumnGetter[String, String](identity)
@@ -156,31 +156,31 @@ trait LowPriorityIndexedColumnGetter {
   def streamColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Stream[A0]] =
     new IndexedColumnGetter[Stream[A0]] {
       def apply(row: Row, i: Int): Stream[A0] =
-        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toStream.map(f)
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toStream.map(f)
     }
 
   def seqColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Seq[A0]] =
     new IndexedColumnGetter[Seq[A0]] {
       def apply(row: Row, i: Int): Seq[A0] =
-        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).map(_.asInstanceOf[A0])
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.map(_.asInstanceOf[A0])
     }
 
   def vectorColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Vector[A0]] =
     new IndexedColumnGetter[Vector[A0]] {
       def apply(row: Row, i: Int): Vector[A0] =
-        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toVector.map(_.asInstanceOf[A0])
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toVector.map(_.asInstanceOf[A0])
     }
 
   def listColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[List[A0]] =
     new IndexedColumnGetter[List[A0]] {
       def apply(row: Row, i: Int): List[A0] =
-        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toList.map(f)
+        row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toList.map(f)
     }
 
   def setColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Set[A0]] =
     new IndexedColumnGetter[Set[A0]] {
       def apply(row: Row, i: Int): Set[A0] = {
-        val x: Set[A] = row.getSet(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toSet
+        val x: Set[A] = row.getSet(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toSet
         x.map(f)
       }
     }
