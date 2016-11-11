@@ -5,6 +5,7 @@ lazy val root = project.in(file("."))
   .aggregate(core, `twitter-util`, examples)
   .dependsOn(core, `twitter-util`, examples)
 
+lazy val allSettingsCross = buildSettingsCross ++ baseSettings ++ publishSettings ++ scalariformSettings
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scalariformSettings
 
 lazy val buildSettings = Seq(
@@ -12,18 +13,23 @@ lazy val buildSettings = Seq(
   scalaVersion := "2.11.8"
 )
 
+lazy val buildSettingsCross = Seq(
+  organization := "com.github.yanana",
+  scalaVersion := "2.11.8",
+  crossScalaVersions := Seq("2.11.8", "2.12.0")
+)
+
 val datastaxVersion = "3.1.0"
-val catsVersion = "0.7.0"
+val catsVersion = "0.8.1"
 val shapelessVersion = "2.3.2"
-val scalacheckVersion = "1.13.2"
+val scalacheckVersion = "1.13.4"
 val scalatestVersion = "3.0.0"
-val catbirdVersion = "0.7.0"
+val catbirdVersion = "0.8.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
   "org.typelevel" %% "cats" % catsVersion,
-  "com.chuusai" %% "shapeless" % shapelessVersion,
-  "org.scodec" %% "scodec-bits" % "1.1.0"
+  "com.chuusai" %% "shapeless" % shapelessVersion
 ) map (_.withSources)
 
 lazy val testDeps = Seq(
@@ -40,7 +46,13 @@ lazy val baseSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
+  scalacOptions ++= compilerOptions ++ (
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 11)) => Seq("-Ywarn-unused-import")
+      case _ => Seq.empty
+    }
+    ),
+  scalacOptions in (Compile, console) ~= (_ filterNot (_ == "-Ywarn-unused-import"))
 )
 
 lazy val publishSettings = Seq(
@@ -90,7 +102,7 @@ lazy val core = project.in(file("core"))
     moduleName := "agni-core",
     name := "core"
   )
-  .settings(allSettings: _*)
+  .settings(allSettingsCross: _*)
 
 lazy val `twitter-util` = project.in(file("twitter-util"))
   .settings(
@@ -119,7 +131,7 @@ lazy val examples = project.in(file("examples"))
       "org.slf4j" % "slf4j-simple" % "1.7.13"
     )
   )
-  .dependsOn(core, `twitter-util`)
+  .dependsOn(`twitter-util`)
 
 lazy val compilerOptions = Seq(
   "-deprecation",
@@ -133,6 +145,5 @@ lazy val compilerOptions = Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Xfuture",
-  "-Yinline-warnings",
   "-Xlint"
 )

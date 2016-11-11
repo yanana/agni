@@ -3,7 +3,6 @@ import java.nio.ByteBuffer
 import java.util.{ Date, UUID, List => JList, Map => JMap, Set => JSet }
 
 import com.datastax.driver.core.{ LocalDate, Token, TupleValue, UDTValue }
-import scodec.bits.{ BitVector, ByteVector }
 import shapeless._
 
 import scala.collection.JavaConverters._
@@ -36,7 +35,5 @@ package object agni {
     implicit def caseVector[L[+A] <: Vector[A], A, B](implicit sa: Case.Aux[A, B]) = at[L[A]](_.map(scalaToJava).asJava)
     implicit def caseList[L[+A] <: List[A], A, B](implicit sa: Case.Aux[A, B]) = at[L[A]](_.map(scalaToJava).asJava: JList[B])
     implicit def caseStream[L[+A] <: Stream[A], A, B](implicit sa: Case.Aux[A, B]) = at[L[A]](_.map(scalaToJava).asJava: JList[B])
-    implicit val caseByteVector = at[ByteVector](_.toByteBuffer)
-    implicit val caseBitVector = at[BitVector](_.toByteBuffer)
   }
 }

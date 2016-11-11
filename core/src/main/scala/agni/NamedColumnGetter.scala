@@ -7,9 +7,8 @@ import java.util.{ Date, UUID }
 
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
-import scodec.bits.{ BitVector, ByteVector }
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 trait NamedColumnGetter[+T] {
@@ -61,16 +60,6 @@ object NamedColumnGetter extends LowPriorityNamedColumnGetter {
   implicit val byteBufferColumnGetter: NamedColumnGetter[ByteBuffer] =
     new NamedColumnGetter[ByteBuffer] {
       def apply(row: Row, name: String): ByteBuffer = row.getBytes(name)
-    }
-
-  implicit val byteVectorColumnGetter: NamedColumnGetter[ByteVector] =
-    new NamedColumnGetter[ByteVector] {
-      def apply(row: Row, name: String): ByteVector = ByteVector(row.getBytes(name))
-    }
-
-  implicit val bitVectorColumnGetter: NamedColumnGetter[BitVector] =
-    new NamedColumnGetter[BitVector] {
-      def apply(row: Row, name: String): BitVector = BitVector(row.getBytes(name))
     }
 
   implicit val inetColumnGetter: NamedColumnGetter[InetAddress] =
@@ -154,31 +143,31 @@ trait LowPriorityNamedColumnGetter {
   def streamColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): NamedColumnGetter[Stream[A0]] =
     new NamedColumnGetter[Stream[A0]] {
       def apply(row: Row, name: String): Stream[A0] =
-        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toStream.map(f)
+        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toStream.map(f)
     }
 
   def seqColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): NamedColumnGetter[Seq[A0]] =
     new NamedColumnGetter[Seq[A0]] {
       def apply(row: Row, name: String): Seq[A0] =
-        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).map(_.asInstanceOf[A0])
+        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.map(_.asInstanceOf[A0])
     }
 
   def vectorColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): NamedColumnGetter[Vector[A0]] =
     new NamedColumnGetter[Vector[A0]] {
       def apply(row: Row, name: String): Vector[A0] =
-        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toVector.map(_.asInstanceOf[A0])
+        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toVector.map(_.asInstanceOf[A0])
     }
 
   def listColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): NamedColumnGetter[List[A0]] =
     new NamedColumnGetter[List[A0]] {
       def apply(row: Row, name: String): List[A0] =
-        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toList.map(f)
+        row.getList(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toList.map(f)
     }
 
   def setColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): NamedColumnGetter[Set[A0]] =
     new NamedColumnGetter[Set[A0]] {
       def apply(row: Row, name: String): Set[A0] = {
-        val x: Set[A] = row.getSet(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).toSet
+        val x: Set[A] = row.getSet(name, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toSet
         x.map(f)
       }
     }
@@ -194,6 +183,6 @@ trait LowPriorityNamedColumnGetter {
           name,
           TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
           TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
-        ).toMap.mapValues(f)
+        ).asScala.toMap.mapValues(f)
     }
 }

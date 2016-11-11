@@ -9,8 +9,6 @@ import com.datastax.driver.core._
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Prop._
 import org.scalacheck._
-import scodec.bits.Arbitraries._
-import scodec.bits.ByteVector
 
 class scalaToJavaSpec extends Properties("scalaToJava") {
 
@@ -66,11 +64,6 @@ class scalaToJavaSpec extends Properties("scalaToJava") {
   property("caseBigInt") = forAll { (a: BigInt) =>
     val converted = scalaToJava(a)
     converted.isInstanceOf[java.math.BigInteger] && a.bigInteger == converted
-  }
-
-  property("caseByteVector") = forAll { (a: ByteVector) =>
-    val converted = scalaToJava(a)
-    converted.isInstanceOf[ByteBuffer] && converted == a.toByteBuffer
   }
 
   property("caseList") = forAll { (a: List[Int]) =>
