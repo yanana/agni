@@ -6,8 +6,7 @@ import java.time.Instant
 import java.util.{ Date, UUID }
 
 import com.datastax.driver.core.{ LocalDate, TupleValue, UDTValue, Row }
-import scodec.bits.{ BitVector, ByteVector }
-import shapeless._, syntax._, record._
+import shapeless._, record._
 
 class RowDecoderSpec extends org.scalatest.FunSuite {
 
@@ -98,14 +97,6 @@ class RowDecoderSpec extends org.scalatest.FunSuite {
 
   test("RowDecoder[TupleValue]") {
     assertCompiles("RowDecoder[TupleValue]")
-  }
-
-  test("RowDecoder[ByteVector]") {
-    assertCompiles("RowDecoder[ByteVector]")
-  }
-
-  test("RowDecoder[BitVector]") {
-    assertCompiles("RowDecoder[BitVector]")
   }
 
   test("RowDecoderT2[(Int, Long)]") {

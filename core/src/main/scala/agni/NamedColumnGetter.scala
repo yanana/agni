@@ -7,7 +7,6 @@ import java.util.{ Date, UUID }
 
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
-import scodec.bits.{ BitVector, ByteVector }
 
 import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
@@ -61,16 +60,6 @@ object NamedColumnGetter extends LowPriorityNamedColumnGetter {
   implicit val byteBufferColumnGetter: NamedColumnGetter[ByteBuffer] =
     new NamedColumnGetter[ByteBuffer] {
       def apply(row: Row, name: String): ByteBuffer = row.getBytes(name)
-    }
-
-  implicit val byteVectorColumnGetter: NamedColumnGetter[ByteVector] =
-    new NamedColumnGetter[ByteVector] {
-      def apply(row: Row, name: String): ByteVector = ByteVector(row.getBytes(name))
-    }
-
-  implicit val bitVectorColumnGetter: NamedColumnGetter[BitVector] =
-    new NamedColumnGetter[BitVector] {
-      def apply(row: Row, name: String): BitVector = BitVector(row.getBytes(name))
     }
 
   implicit val inetColumnGetter: NamedColumnGetter[InetAddress] =

@@ -22,8 +22,7 @@ val catbirdVersion = "0.7.0"
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
   "org.typelevel" %% "cats" % catsVersion,
-  "com.chuusai" %% "shapeless" % shapelessVersion,
-  "org.scodec" %% "scodec-bits" % "1.1.0"
+  "com.chuusai" %% "shapeless" % shapelessVersion
 ) map (_.withSources)
 
 lazy val testDeps = Seq(
