@@ -5,26 +5,20 @@ lazy val root = project.in(file("."))
   .aggregate(core, `twitter-util`, examples)
   .dependsOn(core, `twitter-util`, examples)
 
-lazy val allSettingsCross = buildSettingsCross ++ baseSettings ++ publishSettings ++ scalariformSettings
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scalariformSettings
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.12.1",
+  crossScalaVersions := Seq("2.11.8", "2.12.1")
 )
 
-lazy val buildSettingsCross = Seq(
-  organization := "com.github.yanana",
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.11.8", "2.12.0")
-)
-
-val datastaxVersion = "3.1.0"
-val catsVersion = "0.8.1"
+val datastaxVersion = "3.1.3"
+val catsVersion = "0.9.0"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.4"
-val scalatestVersion = "3.0.0"
-val catbirdVersion = "0.8.0"
+val scalatestVersion = "3.0.1"
+val catbirdVersion = "0.11.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
@@ -46,16 +40,11 @@ lazy val baseSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  scalacOptions ++= compilerOptions ++ (
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 11)) => Seq("-Ywarn-unused-import")
-      case _ => Seq.empty
-    }
-    ),
   scalacOptions in (Compile, console) ~= (_ filterNot (_ == "-Ywarn-unused-import"))
 )
 
 lazy val publishSettings = Seq(
+  releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   homepage := Some(url("https://github.com/yanana/agni")),
   licenses := Seq("MIT License" -> url("http://www.opensource.org/licenses/mit-license.php")),
@@ -102,7 +91,7 @@ lazy val core = project.in(file("core"))
     moduleName := "agni-core",
     name := "core"
   )
-  .settings(allSettingsCross: _*)
+  .settings(allSettings: _*)
 
 lazy val `twitter-util` = project.in(file("twitter-util"))
   .settings(
@@ -142,6 +131,7 @@ lazy val compilerOptions = Seq(
   "-language:higherKinds",
   "-language:implicitConversions",
   "-language:postfixOps",
+  "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Xfuture",
