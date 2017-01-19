@@ -2,14 +2,11 @@ box: hseeberger/scala-sbt
 build:
   steps:
     - script:
-        name: install git
-        code: |
-          apt-get update && apt-get install git
-    - script:
         name: run tests and publish if needed
         code: |
           sbt coverage test coverageReport
-          sbt ++2.12.0 "project core" coverage test coverageReport
+          sbt ++"2.11.8" coverage test coverageReport
+
 deploy:
   steps:
     - script:
@@ -18,5 +15,4 @@ deploy:
         export PGP_SECRET_RING_PATH=$(mktemp -d)/secring.asc
         echo "${PGP_SECRET}" | base64 --decode > "${PGP_SECRET_RING_PATH}"
         echo "${PGP_PASS}" | sbt publishSigned
-        echo "${PGP_PASS}" | sbt ++2.12.0 core/publishSigned
-
+        echo "${PGP_PASS}" | sbt ++2.11.8 publishSigned
