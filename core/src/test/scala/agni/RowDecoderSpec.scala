@@ -5,181 +5,54 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.{ Date, UUID }
 
-import com.datastax.driver.core.{ LocalDate, TupleValue, UDTValue, Row }
-import shapeless._, record._
+import agni.cassandra.EmptyRow
+import com.datastax.driver.core.{ LocalDate, Token, TupleValue, UDTValue }
+import org.scalatest.{ Assertion, FunSuite }
+import org.scalatest.prop.Checkers
+import shapeless.record._
 
-class RowDecoderSpec extends org.scalatest.FunSuite {
+class RowDecoderSpec extends FunSuite with Checkers {
 
-  type A = Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`.T
+  final case class Named(a: Option[Int], b: ByteBuffer, c: Int, d: String, e: Long, f: Double, g: Float, h: BigDecimal, i: UUID, j: Array[Byte], k: InetAddress, l: LocalDate, m: Instant, n: BigInt, o: Date, p: Token, q: List[Int], r: Vector[String], s: Set[Double], t: Map[String, Date], u: UDTValue, v: TupleValue, w: Stream[Float])
 
-  case class Quux(a: Int, b: Option[String], c: Map[String, String])
+  type IDV = Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`.T
 
-  test("RowDecoder[Int]") {
-    assertCompiles("RowDecoder[Int]")
+  implicit val iDateGetter: IndexedColumnGetter[Map[String, Date]] =
+    IndexedColumnGetter.mapColumnGetter[String, Date, Date](identity)
+  implicit val nDateGetter: NamedColumnGetter[Map[String, Date]] =
+    NamedColumnGetter.mapColumnGetter[String, Date, Date](identity)
+
+  def checkType[A: RowDecoder]: Assertion = {
+    val decoder = RowDecoder.apply[A]
+    val Right(x) = decoder.apply(new EmptyRow)
+    assert(x.isInstanceOf[A])
   }
 
-  test("RowDecoder[String]") {
-    assertCompiles("RowDecoder[String]")
-  }
+  // NamedColumnGetter
+  test("RowDecoder[Named]")(checkType[Named])
+  test("RowDecoder[Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`]")(checkType[IDV])
 
-  test("RowDecoder[Long]") {
-    assertCompiles("RowDecoder[Long]")
-  }
-
-  test("RowDecoder[Double]") {
-    assertCompiles("RowDecoder[Double]")
-  }
-
-  test("RowDecoder[Float]") {
-    assertCompiles("RowDecoder[Float]")
-  }
-
-  test("RowDecoder[BigDecimal]") {
-    assertCompiles("RowDecoder[BigDecimal]")
-  }
-
-  test("RowDecoder[UUID]") {
-    assertCompiles("RowDecoder[UUID]")
-  }
-
-  test("RowDecoder[Array[Byte]]") {
-    assertCompiles("RowDecoder[Array[Byte]]")
-  }
-
-  test("RowDecoder[InetAddress]") {
-    assertCompiles("RowDecoder[InetAddress]")
-  }
-
-  test("RowDecoder[LocalDate]") {
-    assertCompiles("RowDecoder[LocalDate]")
-  }
-
-  test("RowDecoder[Instant]") {
-    assertCompiles("RowDecoder[Instant]")
-  }
-
-  test("RowDecoder[BigInt]") {
-    assertCompiles("RowDecoder[BigInt]")
-  }
-
-  test("RowDecoder[Seq[Int]]") {
-    // assertCompiles("RowDecoder[Seq[Int]]")
-  }
-
-  test("RowDecoder[List[Int]]") {
-    assertCompiles("RowDecoder[List[Int]]")
-  }
-
-  test("RowDecoder[Vector[String]]") {
-    assertCompiles("RowDecoder[Vector[String]]")
-  }
-
-  test("RowDecoder[Set[String]]") {
-    assertCompiles("RowDecoder[Set[String]]")
-  }
-
-  test("RowDecoder[Map[String, Date]]") {
-    implicit val date = IndexedColumnGetter.mapColumnGetter[String, Date, Date](identity)
-    assertCompiles("RowDecoder[Map[String, Date]]")
-  }
-
-  test("RowDecoder[Quux]") {
-    assertCompiles("RowDecoder[Quux]")
-  }
-
-  test("RowDecoder[Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`]") {
-    assertCompiles("RowDecoder[A]")
-  }
-
-  test("RowDecoder[UDTValue]") {
-    assertCompiles("RowDecoder[UDTValue]")
-  }
-
-  test("RowDecoder[TupleValue]") {
-    assertCompiles("RowDecoder[TupleValue]")
-  }
-
-  test("RowDecoderT2[(Int, Long)]") {
-    assertCompiles("RowDecoder[(Int, Long)]")
-  }
-
-  test("RowDecoderT3[(Int, Long, Double)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double)]")
-  }
-
-  test("RowDecoderT4[(Int, Long, Double, String)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String)]")
-  }
-
-  test("RowDecoderT5[(Int, Long, Double, String, Option[Int])]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int])]")
-  }
-
-  test("RowDecoderT6[(Int, Long, Double, String, Option[Int], Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int)]")
-  }
-
-  test("RowDecoderT7[(Int, Long, Double, String, Option[Int], Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int)]")
-  }
-
-  test("RowDecoderT8[(Int, Long, Double, String, Option[Int], Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int)]")
-  }
-
-  test("RowDecoderT9[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT10[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT11[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long)]")
-  }
-
-  test("RowDecoderT12[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float)]")
-  }
-
-  test("RowDecoderT13[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double)]")
-  }
-
-  test("RowDecoderT14[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int)]")
-  }
-
-  test("RowDecoderT15[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int)]")
-  }
-
-  test("RowDecoderT16[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT17[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT18[(Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT19[(Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT20[(Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT21[(Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
-
-  test("RowDecoderT22[(Int, Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]") {
-    assertCompiles("RowDecoder[(Int, Int, Int, Int, Int, Int, Long, Double, String, Option[Int], Int, Int, Int, Int, Int, Long, Float, Double, Int, Int, Int, Int)]")
-  }
+  // IndexedColumnGetter
+  test("RowDecoder[Option[Int]]")(checkType[Option[Int]])
+  test("RowDecoder[Stream[Int]]")(checkType[Stream[Int]])
+  test("RowDecoder[(ByteBuffer, Int)]")(checkType[(ByteBuffer, Int)])
+  test("RowDecoder[(ByteBuffer, Int, String)]")(checkType[(ByteBuffer, Int, String)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long)]")(checkType[(ByteBuffer, Int, String, Long)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double)]")(checkType[(ByteBuffer, Int, String, Long, Double)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte])])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token)]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int])])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String])])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String])])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date])])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date], UDTValue])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date], UDTValue)])
+  test("RowDecoder[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date], UDTValue, TupleValue])]")(checkType[(ByteBuffer, Int, String, Long, Double, Float, BigDecimal, UUID, Array[Byte], InetAddress, LocalDate, Instant, BigInt, Date, Token, List[Int], Vector[String], Set[String], Map[String, Date], UDTValue, TupleValue)])
 }

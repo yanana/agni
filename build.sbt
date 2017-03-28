@@ -2,8 +2,8 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`, examples)
-  .dependsOn(core, `twitter-util`, examples)
+  .aggregate(core, `twitter-util`)
+  .dependsOn(core, `twitter-util`)
 
 lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scalariformSettings
 
@@ -107,19 +107,34 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
   )
   .dependsOn(core)
 
+lazy val benchmarks = project.in(file("benchmarks"))
+  .settings(
+    description := "agni benchmarks",
+    moduleName := "agni-benchmarks",
+    name := "benchmarks",
+    scalaVersion := "2.12.1",
+    crossScalaVersions := Seq("2.12.1"),
+    libraryDependencies ++= coreDeps ++ Seq(
+      "io.catbird" %% "catbird-util" % catbirdVersion
+    )
+  )
+  .enablePlugins(JmhPlugin)
+  .settings(noPublishSettings)
+  .dependsOn(`twitter-util`)
+
 lazy val examples = project.in(file("examples"))
   .settings(
     description := "agni examples",
     moduleName := "agni-examples",
-    name := "examples"
-  )
-  .settings(allSettings: _*)
-  .settings(noPublishSettings)
-  .settings(
+    name := "examples",
+    scalaVersion := "2.12.1",
+    crossScalaVersions := Seq("2.12.1"),
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-simple" % "1.7.13"
     )
   )
+  .settings(allSettings: _*)
+  .settings(noPublishSettings)
   .dependsOn(`twitter-util`)
 
 lazy val compilerOptions = Seq(

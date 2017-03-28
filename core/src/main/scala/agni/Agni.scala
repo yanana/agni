@@ -52,4 +52,10 @@ abstract class Agni[F[_], E](
 
   def bind[A](pstmt: PreparedStatement, a: A)(implicit A: Binder[A]): Action[BoundStatement] =
     Kleisli.pure(A(pstmt, a))
+
+  def bind[A](a: A)(implicit A: Binder[A]): Kleisli[F, PreparedStatement, BoundStatement] =
+    Kleisli[F, PreparedStatement, BoundStatement](pstmt => F.pure(A(pstmt, a)))
+
+  val bind: Kleisli[F, PreparedStatement, BoundStatement] =
+    Kleisli[F, PreparedStatement, BoundStatement](pstmt => F.pure(pstmt.bind()))
 }
