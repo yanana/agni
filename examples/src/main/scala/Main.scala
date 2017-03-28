@@ -3,12 +3,13 @@ import java.util.concurrent.Executors
 
 import agni.twitter.util.Future._
 import cats.MonadError
-import com.datastax.driver.core._, querybuilder.{ QueryBuilder => Q, _ }
+import com.datastax.driver.core.{ Cluster, RegularStatement, SimpleStatement, querybuilder }
+import com.datastax.driver.core.querybuilder.{ Select, Insert, QueryBuilder => Q }
 import com.twitter.util.{ Await, Try, Future => TFuture }
+import io.catbird.util._
 import shapeless._
 
 object Main extends App {
-  import io.catbird.util._
 
   implicit val executor = Executors.newWorkStealingPool()
 
@@ -23,16 +24,18 @@ object Main extends App {
     baba: Option[Vector[Long]]
   )
 
-  def newId = UUID.randomUUID()
+  def newId: UUID = UUID.randomUUID()
+
+  implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
   val remake: Action[Unit] = for {
-    _ <- execute[Unit](s"""
+    _ <- get[Unit](s"""
       |CREATE KEYSPACE IF NOT EXISTS test
       |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
       |""".stripMargin)
-    _ <- execute[Unit]("USE test")
-    _ <- execute[Unit](s"DROP TABLE IF EXISTS user")
-    _ <- execute[Unit](s"""
+    _ <- get[Unit]("USE test")
+    _ <- get[Unit](s"DROP TABLE IF EXISTS user")
+    _ <- get[Unit](s"""
       |CREATE TABLE user (
       |  id uuid PRIMARY KEY,
       |  foods set<ascii>,
@@ -54,47 +57,52 @@ object Main extends App {
     xs: List[BigInt] = List.empty
   )
 
-  val insertUser = Q.insertInto("user")
+  val insertUser: Insert = Q.insertInto("user")
     .value("id", Q.bindMarker())
     .value("foods", Q.bindMarker())
     .value("address", Q.bindMarker())
     .value("baba", Q.bindMarker())
     .value("xs", Q.bindMarker())
 
-  val selectUser = Q.select(
+  val selectUser: Select = Q.select(
     "id", "foods", "first_name", "last_name",
     "age", "gender", "address", "baba", "xs"
   ).from("user")
 
-  val batchInsert = for {
-    pstmt1 <- prepare(insertUser.toString)
+  val selectUUser: Select = Q.select(
+    "id", "foods", "first_name", "last_name",
+    "age", "gender", "address", "baba", "xs"
+  ).from("user").limit(1)
 
-    id1 <- lift(newId)
-    baba1 <- lift(Vector(1L, 2L, Long.MaxValue))
-    xs1 <- lift(List(BigInt(10)))
+  val insert = for {
+    pstmt1 <- prepare(insertUser)
+
+    id1 <- pure(newId)
+    baba1 <- pure(Vector(1L, 2L, Long.MaxValue))
+    xs1 <- pure(List(BigInt(10)))
     stmt1 <- bind(pstmt1, id1 :: Set("Banana") :: Map.empty[String, String] :: baba1 :: xs1 :: HNil)
-    _ <- execute[Unit](stmt1)
+    _ <- get[Unit](stmt1)
 
-    id2 <- lift(newId)
-    baba2 <- lift(Vector(-1L, -2L, Long.MinValue))
+    id2 <- pure(newId)
+    baba2 <- pure(Vector(-1L, -2L, Long.MinValue))
     stmt2 <- bind(pstmt1, Temp(id = id2, baba = baba2))
-    _ <- execute[Unit](stmt2)
+    _ <- get[Unit](stmt2)
 
-    id3 <- lift(newId)
-    baba3 <- lift(Vector.empty[Long])
+    id3 <- pure(newId)
+    baba3 <- pure(Vector.empty[Long])
     stmt3 <- bind(pstmt1, (id3, Set("Sushi", "Apple"), Map("zip_code" -> "001-0001"), baba3, List.empty[BigInt]))
-    _ <- execute[Unit](stmt3)
+    _ <- get[Unit](stmt3)
   } yield ()
 
-  val selectAll: Action[Iterator[User]] = for {
-    ret <- execute[User](selectUser.toString)
-  } yield ret
+  val select: Action[List[User]] = get(selectUser)
+  val selectOne: Action[Option[User]] = get(selectUUser)
 
   val action = for {
     _ <- remake
-    _ <- batchInsert
-    ret <- selectAll
-  } yield ret
+    _ <- insert
+    ret <- select
+    ret2 <- selectOne
+  } yield (ret, ret2)
 
   val cluster = Cluster.builder()
     .addContactPoint(args(0))
@@ -105,10 +113,10 @@ object Main extends App {
 
   Try(cluster.connect()) map { session =>
     val f = F.attempt(action.run(session))
-    val result = Await.result(f)
-    result fold (
+    val r = Await.result(f)
+    r fold (
       e => e.printStackTrace(),
-      xs => xs take 100 foreach println
+      { case (xs, x) => println(x); xs take 100 foreach println }
     )
   } handle {
     case e: Throwable => e.printStackTrace()

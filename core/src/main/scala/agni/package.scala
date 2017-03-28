@@ -10,6 +10,8 @@ import scala.collection.JavaConverters._
 package object agni {
   import Function.const
 
+  type Result[+R] = Either[Throwable, R]
+
   object scalaToJava extends Poly1 {
     implicit val caseString = at[String](identity)
     implicit val caseUUID = at[UUID](identity)

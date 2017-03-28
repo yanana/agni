@@ -8,5 +8,5 @@ trait RowDecoderSyntax {
 }
 
 final class RowDecoderOps[A](a: Row) {
-  def decode(implicit A: RowDecoder[A]): A = A(a)
+  def decode(implicit A: RowDecoder[A]): Result[A] = A(a)
 }

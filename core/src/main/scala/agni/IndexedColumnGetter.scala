@@ -5,6 +5,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.{ Date, UUID }
 
+import cats.syntax.either._
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
 
@@ -12,93 +13,93 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 trait IndexedColumnGetter[+T] {
-  def apply(row: Row, i: Int): T
+  def apply(row: Row, i: Int): Result[T]
 }
 
 object IndexedColumnGetter extends LowPriorityIndexedColumnGetter {
   def apply[T](implicit T: IndexedColumnGetter[T]): IndexedColumnGetter[T] = T
 
   implicit val stringColumnGetter = new IndexedColumnGetter[String] {
-    def apply(row: Row, i: Int): String = row.getString(i)
+    def apply(row: Row, i: Int): Result[String] = Either.catchNonFatal(row.getString(i))
   }
 
   implicit val intColumnGetter = new IndexedColumnGetter[Int] {
-    def apply(row: Row, i: Int): Int = row.getInt(i)
+    def apply(row: Row, i: Int): Result[Int] = Either.catchNonFatal(row.getInt(i))
   }
 
   implicit val longColumnGetter: IndexedColumnGetter[Long] =
     new IndexedColumnGetter[Long] {
-      def apply(row: Row, i: Int): Long = row.getLong(i)
+      def apply(row: Row, i: Int): Result[Long] = Either.catchNonFatal(row.getLong(i))
     }
 
   implicit val doubleColumnGetter: IndexedColumnGetter[Double] =
     new IndexedColumnGetter[Double] {
-      def apply(row: Row, i: Int): Double = row.getDouble(i)
+      def apply(row: Row, i: Int): Result[Double] = Either.catchNonFatal(row.getDouble(i))
     }
 
   implicit val floatColumnGetter: IndexedColumnGetter[Float] =
     new IndexedColumnGetter[Float] {
-      def apply(row: Row, i: Int): Float = row.getFloat(i)
+      def apply(row: Row, i: Int): Result[Float] = Either.catchNonFatal(row.getFloat(i))
     }
 
   implicit val bigDecimalColumnGetter: IndexedColumnGetter[BigDecimal] =
     new IndexedColumnGetter[BigDecimal] {
-      def apply(row: Row, i: Int): BigDecimal = row.getDecimal(i)
+      def apply(row: Row, i: Int): Result[BigDecimal] = Either.catchNonFatal(row.getDecimal(i))
     }
 
   implicit val uuidColumnGetter: IndexedColumnGetter[UUID] =
     new IndexedColumnGetter[UUID] {
-      def apply(row: Row, i: Int): UUID = row.getUUID(i)
+      def apply(row: Row, i: Int): Result[UUID] = Either.catchNonFatal(row.getUUID(i))
     }
 
   implicit val bytesColumnGetter: IndexedColumnGetter[Array[Byte]] =
     new IndexedColumnGetter[Array[Byte]] {
-      def apply(row: Row, i: Int): Array[Byte] = row.getBytes(i).array()
+      def apply(row: Row, i: Int): Result[Array[Byte]] = Either.catchNonFatal(row.getBytes(i).array())
     }
 
   implicit val byteBufferColumnGetter: IndexedColumnGetter[ByteBuffer] =
     new IndexedColumnGetter[ByteBuffer] {
-      def apply(row: Row, i: Int): ByteBuffer = row.getBytes(i)
+      def apply(row: Row, i: Int): Result[ByteBuffer] = Either.catchNonFatal(row.getBytes(i))
     }
 
   implicit val inetColumnGetter: IndexedColumnGetter[InetAddress] =
     new IndexedColumnGetter[InetAddress] {
-      def apply(row: Row, i: Int): InetAddress = row.getInet(i)
+      def apply(row: Row, i: Int): Result[InetAddress] = Either.catchNonFatal(row.getInet(i))
     }
 
   implicit val localDateColumnGetter: IndexedColumnGetter[LocalDate] =
     new IndexedColumnGetter[LocalDate] {
-      def apply(row: Row, i: Int): LocalDate = row.getDate(i)
+      def apply(row: Row, i: Int): Result[LocalDate] = Either.catchNonFatal(row.getDate(i))
     }
 
   implicit val timestampColumnGetter: IndexedColumnGetter[Date] =
     new IndexedColumnGetter[Date] {
-      def apply(row: Row, i: Int): Date = row.getTimestamp(i)
+      def apply(row: Row, i: Int): Result[Date] = Either.catchNonFatal(row.getTimestamp(i))
     }
 
   implicit val tokenColumnGetter: IndexedColumnGetter[Token] =
     new IndexedColumnGetter[Token] {
-      def apply(row: Row, i: Int): Token = row.getToken(i)
+      def apply(row: Row, i: Int): Result[Token] = Either.catchNonFatal(row.getToken(i))
     }
 
   implicit val instantColumnGetter: IndexedColumnGetter[Instant] =
     new IndexedColumnGetter[Instant] {
-      def apply(row: Row, i: Int): Instant = row.getTimestamp(i).toInstant
+      def apply(row: Row, i: Int): Result[Instant] = Either.catchNonFatal(row.getTimestamp(i).toInstant)
     }
 
   implicit val varintColumnGetter: IndexedColumnGetter[BigInt] =
     new IndexedColumnGetter[BigInt] {
-      def apply(row: Row, i: Int): BigInt = row.getVarint(i)
+      def apply(row: Row, i: Int): Result[BigInt] = Either.catchNonFatal(row.getVarint(i))
     }
 
   implicit val udtValueColumnGetter: IndexedColumnGetter[UDTValue] =
     new IndexedColumnGetter[UDTValue] {
-      def apply(row: Row, i: Int): UDTValue = row.getUDTValue(i)
+      def apply(row: Row, i: Int): Result[UDTValue] = Either.catchNonFatal(row.getUDTValue(i))
     }
 
   implicit val tupleValueColumnGetter: IndexedColumnGetter[TupleValue] =
     new IndexedColumnGetter[TupleValue] {
-      def apply(row: Row, i: Int): TupleValue = row.getTupleValue(i)
+      def apply(row: Row, i: Int): Result[TupleValue] = Either.catchNonFatal(row.getTupleValue(i))
     }
 
   def mapColumnGetter[K, V, V0](f: V => V0)(
@@ -107,12 +108,13 @@ object IndexedColumnGetter extends LowPriorityIndexedColumnGetter {
     valTag: ClassTag[V]
   ): IndexedColumnGetter[Map[K, V0]] =
     new IndexedColumnGetter[Map[K, V0]] {
-      def apply(row: Row, i: Int): Map[K, V0] =
+      def apply(row: Row, i: Int): Result[Map[K, V0]] = Either.catchNonFatal {
         row.getMap(
           i,
           TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
           TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
         ).asScala.toMap.mapValues(f)
+      }
     }
 
   implicit val setS: IndexedColumnGetter[Set[String]] = setColumnGetter[String, String](identity)
@@ -149,37 +151,41 @@ object IndexedColumnGetter extends LowPriorityIndexedColumnGetter {
 trait LowPriorityIndexedColumnGetter {
 
   implicit def optionColumnGetter[A](implicit A: IndexedColumnGetter[A]) = new IndexedColumnGetter[Option[A]] {
-    def apply(row: Row, i: Int): Option[A] =
-      if (row.isNull(i)) None else Option(A(row, i))
+    def apply(row: Row, i: Int): Result[Option[A]] =
+      if (row.isNull(i)) Right(None) else A(row, i).map(Option.apply)
   }
 
   def streamColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Stream[A0]] =
     new IndexedColumnGetter[Stream[A0]] {
-      def apply(row: Row, i: Int): Stream[A0] =
+      def apply(row: Row, i: Int): Result[Stream[A0]] = Either.catchNonFatal {
         row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toStream.map(f)
+      }
     }
 
   def seqColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Seq[A0]] =
     new IndexedColumnGetter[Seq[A0]] {
-      def apply(row: Row, i: Int): Seq[A0] =
+      def apply(row: Row, i: Int): Result[Seq[A0]] = Either.catchNonFatal {
         row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.map(_.asInstanceOf[A0])
+      }
     }
 
   def vectorColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Vector[A0]] =
     new IndexedColumnGetter[Vector[A0]] {
-      def apply(row: Row, i: Int): Vector[A0] =
+      def apply(row: Row, i: Int): Result[Vector[A0]] = Either.catchNonFatal {
         row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toVector.map(_.asInstanceOf[A0])
+      }
     }
 
   def listColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[List[A0]] =
     new IndexedColumnGetter[List[A0]] {
-      def apply(row: Row, i: Int): List[A0] =
+      def apply(row: Row, i: Int): Result[List[A0]] = Either.catchNonFatal {
         row.getList(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toList.map(f)
+      }
     }
 
   def setColumnGetter[A, A0](f: A => A0)(implicit tag: ClassTag[A]): IndexedColumnGetter[Set[A0]] =
     new IndexedColumnGetter[Set[A0]] {
-      def apply(row: Row, i: Int): Set[A0] = {
+      def apply(row: Row, i: Int): Result[Set[A0]] = Either.catchNonFatal {
         val x: Set[A] = row.getSet(i, TypeToken.of[A](tag.runtimeClass.asInstanceOf[Class[A]])).asScala.toSet
         x.map(f)
       }
