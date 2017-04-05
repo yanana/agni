@@ -1,14 +1,15 @@
 package agni
-package twitter.util
+package std
 
 import agni.cache.CachedPreparedStatementWithGuava
+import cats.instances.try_._
 import com.datastax.driver.core.PreparedStatement
 import com.google.common.cache.Cache
-import com.twitter.util.{ Try => TTry }
-import io.catbird.util._
+
+import scala.util.{ Try => STry }
 
 abstract class Try(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[TTry, Throwable] with CachedPreparedStatementWithGuava {
+    extends Agni[STry, Throwable] with CachedPreparedStatementWithGuava {
 
-  protected val cache: Cache[String, PreparedStatement] = _cache
+  override protected val cache: Cache[String, PreparedStatement] = _cache
 }

@@ -13,7 +13,7 @@ lazy val buildSettings = Seq(
   crossScalaVersions := Seq("2.11.8", "2.12.1")
 )
 
-val datastaxVersion = "3.1.4"
+val datastaxVersion = "3.2.0"
 val catsVersion = "0.9.0"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
@@ -115,7 +115,9 @@ lazy val benchmarks = project.in(file("benchmarks"))
     scalaVersion := "2.12.1",
     crossScalaVersions := Seq("2.12.1"),
     libraryDependencies ++= coreDeps ++ Seq(
-      "io.catbird" %% "catbird-util" % catbirdVersion
+      "io.catbird" %% "catbird-util" % catbirdVersion,
+      "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
+      "com.github.ben-manes.caffeine" % "guava" % "2.4.0"
     )
   )
   .enablePlugins(JmhPlugin)
@@ -130,7 +132,8 @@ lazy val examples = project.in(file("examples"))
     scalaVersion := "2.12.1",
     crossScalaVersions := Seq("2.12.1"),
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "1.7.13"
+      "org.slf4j" % "slf4j-simple" % "1.7.13",
+      "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
   .settings(allSettings: _*)

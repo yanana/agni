@@ -3,12 +3,17 @@ package twitter.util
 
 import java.util.concurrent.Executor
 
-import io.catbird.util._
-import com.datastax.driver.core.{ ResultSet, Statement }
+import agni.cache.CachedPreparedStatementWithGuava
+import com.datastax.driver.core.{ PreparedStatement, ResultSet, Statement }
+import com.google.common.cache.Cache
 import com.google.common.util.concurrent.{ FutureCallback, Futures }
 import com.twitter.util.{ Promise, Future => TFuture }
+import io.catbird.util._
 
-object Future extends Agni[TFuture, Throwable] {
+abstract class Future(implicit _cache: Cache[String, PreparedStatement])
+    extends Agni[TFuture, Throwable] with CachedPreparedStatementWithGuava {
+
+  override protected val cache: Cache[String, PreparedStatement] = _cache
 
   type P[A] = Promise[Iterator[Result[A]]]
 
