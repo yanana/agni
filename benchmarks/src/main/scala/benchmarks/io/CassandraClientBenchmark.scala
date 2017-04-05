@@ -4,7 +4,6 @@ import java.util.UUID
 import java.util.concurrent.{ Executor, Executors, TimeUnit }
 
 import agni._
-import agni.twitter.util.{ Future => TF }
 import cats.instances.try_._
 import cats.instances.future._
 import cats.instances.list._
@@ -12,13 +11,14 @@ import cats.syntax.traverse._
 import cats.syntax.cartesian._
 import com.datastax.driver.core.querybuilder.{ Insert, Select, QueryBuilder => Q }
 import com.datastax.driver.core._
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.guava.CaffeinatedGuava
+import com.google.common.cache.Cache
 import com.google.common.util.concurrent.{ FutureCallback, Futures, MoreExecutors }
 import org.openjdk.jmh.annotations._
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
-import scala.util.Try
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.Throughput))
@@ -28,13 +28,14 @@ import scala.util.Try
 @Fork(1)
 abstract class CassandraClientBenchmark {
 
-  val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
-
-  object ST extends Agni[Try, Throwable]
-
   implicit val context: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
+  // import agni.cache.default._
+  implicit val cache: Cache[String, PreparedStatement] = CaffeinatedGuava.build(Caffeine.newBuilder())
+
   object SF extends agni.std.Future
+  object TF extends agni.twitter.util.Future
+  object ST extends agni.std.Try
 
   case class User(
     id: UUID = UUID.randomUUID(),
@@ -105,8 +106,9 @@ abstract class CassandraClientBenchmark {
 
   @TearDown
   def tearDown(): Unit = {
-    queryCache.clear()
-    ST.queryCache.clear()
+    ST.clear()
+    SF.clear()
+    ST.clear()
     cluster.close()
   }
 }
@@ -246,7 +248,7 @@ class AgniSyncBenchmark extends CassandraClientBenchmark {
 
 class AgniAsyncBenchmark extends CassandraClientBenchmark {
 
-  implicit val executor: Executor = MoreExecutors.sameThreadExecutor()
+  implicit val executor: Executor = MoreExecutors.directExecutor()
 
   implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
 
@@ -288,7 +290,7 @@ class AgniTwitterAsyncBenchmark extends CassandraClientBenchmark {
   import com.twitter.util.{ Await => TAwait }
   import io.catbird.util.twitterFutureInstance
 
-  implicit val executor: Executor = MoreExecutors.sameThreadExecutor()
+  implicit val executor: Executor = MoreExecutors.directExecutor()
 
   implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
 
@@ -351,14 +353,13 @@ class CasJavaDriverAsyncBenchmark extends CassandraClientBenchmark {
 
   @Benchmark
   def one: Option[User] = {
-    val p = queryCache.getOrElseUpdate(selectUser.toString, session.prepare(selectUser))
+    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
     Await.result(getAsync(p.bind(uuid)), Duration.Inf)
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val p = queryCache.getOrElseUpdate(selectUser.toString, session.prepare(selectUser))
-
+    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
     val fa = getAsync(p.bind(uuid))
     val fb = getAsync(p.bind(uuid2))
     val fc = getAsync(p.bind(uuid3))

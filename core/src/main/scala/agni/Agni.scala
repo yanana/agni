@@ -5,17 +5,13 @@ import cats.{ Eval, MonadError }
 import com.datastax.driver.core._
 
 import scala.collection.JavaConverters._
-import scala.collection.concurrent.TrieMap
 
 abstract class Agni[F[_], E](
     implicit
     F: MonadError[F, E],
     ev: Throwable <:< E
-) extends Functions[F] {
+) extends Functions[F] { self: GetPreparedStatement =>
   import syntax._
-
-  // TODO: configurable cache
-  val queryCache: TrieMap[String, PreparedStatement] = TrieMap.empty
 
   @Deprecated
   def lift[A](a: A): Action[A] =
@@ -41,11 +37,11 @@ abstract class Agni[F[_], E](
   val batchOn: Action[BatchStatement] =
     Kleisli.pure[F, Session, BatchStatement](new BatchStatement)
 
-  def prepare(query: String): Action[PreparedStatement] =
-    withSession(session => F.catchNonFatalEval(Eval.later(queryCache.getOrElseUpdate(query, session.prepare(query)))))
+  def prepare(q: String): Action[PreparedStatement] =
+    withSession(session => F.catchNonFatal(getPrepared(session, new SimpleStatement(q))))
 
   def prepare(stmt: RegularStatement): Action[PreparedStatement] =
-    withSession(session => F.catchNonFatalEval(Eval.later(queryCache.getOrElseUpdate(stmt.toString, session.prepare(stmt)))))
+    withSession(session => F.catchNonFatal(getPrepared(session, stmt)))
 
   def bind[A](bstmt: BatchStatement, pstmt: PreparedStatement, a: A)(implicit A: Binder[A]): Action[Unit] =
     Kleisli.pure(bstmt.add(A(pstmt, a)))

@@ -1,126 +1,93 @@
 import java.util.UUID
 import java.util.concurrent.Executors
 
-import agni.twitter.util.Future._
-import cats.MonadError
-import com.datastax.driver.core.{ Cluster, RegularStatement, SimpleStatement, querybuilder }
-import com.datastax.driver.core.querybuilder.{ Select, Insert, QueryBuilder => Q }
-import com.twitter.util.{ Await, Try, Future => TFuture }
+import agni.twitter.util.Future
+import cats.instances.list._
+import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
+import cats.syntax.traverse._
+import com.datastax.driver.core._
+import com.datastax.driver.core.querybuilder.{ Insert, Select, QueryBuilder => Q }
+import com.twitter.util.{ Await, Try }
 import io.catbird.util._
-import shapeless._
+import org.scalatest.Matchers
 
-object Main extends App {
+import agni.cache.default._
+object F extends Future
+
+// Usage: sbt "examples/runMain Main 127.0.0.1 9042"
+object Main extends App with Matchers {
 
   implicit val executor = Executors.newWorkStealingPool()
 
   case class User(
     id: UUID,
-    foods: Set[String],
-    first_name: Option[String],
-    last_name: Option[String],
-    age: Option[Int],
-    gender: Option[String],
-    address: Map[String, String],
-    baba: Option[Vector[Long]]
+    first_name: String,
+    last_name: String,
+    birth: LocalDate,
+    gender: String,
+    works: List[String]
   )
 
-  def newId: UUID = UUID.randomUUID()
+  implicit def tuple3to(a: (Int, Int, Int)): LocalDate = (LocalDate.fromYearMonthDay _).tupled(a)
+
+  val users = List(
+    User(UUID.randomUUID(), "Edna", "O'Brien", (1932, 12, 15), "female", List("The Country Girls", "Girl with Green Eyes", "Girls in Their Married Bliss", "August is a Wicked Month", "Casualties of Peace", "Mother Ireland")),
+    User(UUID.randomUUID(), "Benedict", "Kiely", (1919, 8, 15), "male", List("The Collected Stories of Benedict Kiely", "The Trout in the Turnhole", "A Letter to Peachtree", "The State of Ireland: A Novella and Seventeen Short Stories", "A Cow in the House", "A Ball of Malt and Madame Butterfly", "A Journey to the Seven Streams")),
+    User(UUID.randomUUID(), "Darren", "Shan", (1972, 7, 2), "male", List("Cirque Du Freak", "The Vampire's Assistant", "Tunnels of Blood"))
+  )
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
-  val remake: Action[Unit] = for {
-    _ <- get[Unit](s"""
-      |CREATE KEYSPACE IF NOT EXISTS test
-      |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
-      |""".stripMargin)
-    _ <- get[Unit]("USE test")
-    _ <- get[Unit](s"DROP TABLE IF EXISTS user")
-    _ <- get[Unit](s"""
-      |CREATE TABLE user (
-      |  id uuid PRIMARY KEY,
-      |  foods set<ascii>,
-      |  first_name ascii,
-      |  last_name ascii,
-      |  age int,
-      |  gender ascii,
-      |  address map<ascii, ascii>,
-      |  baba list<bigint>,
-      |  xs list<varint>
-      |)""".stripMargin)
-  } yield ()
+  val remake: F.Action[Unit] =
+    F.get[Unit](s"""CREATE KEYSPACE IF NOT EXISTS agni_test
+                   |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+                   |""".stripMargin) >>
+      F.get[Unit]("USE agni_test") >>
+      F.get[Unit](s"DROP TABLE IF EXISTS user") >>
+      F.get[Unit](s"""CREATE TABLE user (
+                   |  id uuid PRIMARY KEY,
+                   |  first_name text,
+                   |  last_name text,
+                   |  birth date,
+                   |  gender ascii,
+                   |  works list<text>,
+                   |)""".stripMargin)
 
-  case class Temp(
-    id: UUID,
-    foods: Set[String] = Set.empty,
-    address: Map[String, String] = Map.empty,
-    baba: Vector[Long] = Vector.empty,
-    xs: List[BigInt] = List.empty
-  )
+  val insertUserQuery: Insert =
+    Q.insertInto("user")
+      .value("id", Q.bindMarker())
+      .value("first_name", Q.bindMarker())
+      .value("last_name", Q.bindMarker())
+      .value("birth", Q.bindMarker())
+      .value("gender", Q.bindMarker())
+      .value("works", Q.bindMarker())
 
-  val insertUser: Insert = Q.insertInto("user")
-    .value("id", Q.bindMarker())
-    .value("foods", Q.bindMarker())
-    .value("address", Q.bindMarker())
-    .value("baba", Q.bindMarker())
-    .value("xs", Q.bindMarker())
+  val selectUserQuery: Select =
+    Q.select.all.from("user")
 
-  val selectUser: Select = Q.select(
-    "id", "foods", "first_name", "last_name",
-    "age", "gender", "address", "baba", "xs"
-  ).from("user")
+  def insertUser(p: PreparedStatement, a: User): F.Action[Unit] =
+    F.bind(p, a) >>= (b => F.getAsync[Unit](b))
 
-  val selectUUser: Select = Q.select(
-    "id", "foods", "first_name", "last_name",
-    "age", "gender", "address", "baba", "xs"
-  ).from("user").limit(1)
-
-  val insert = for {
-    pstmt1 <- prepare(insertUser)
-
-    id1 <- pure(newId)
-    baba1 <- pure(Vector(1L, 2L, Long.MaxValue))
-    xs1 <- pure(List(BigInt(10)))
-    stmt1 <- bind(pstmt1, id1 :: Set("Banana") :: Map.empty[String, String] :: baba1 :: xs1 :: HNil)
-    _ <- get[Unit](stmt1)
-
-    id2 <- pure(newId)
-    baba2 <- pure(Vector(-1L, -2L, Long.MinValue))
-    stmt2 <- bind(pstmt1, Temp(id = id2, baba = baba2))
-    _ <- get[Unit](stmt2)
-
-    id3 <- pure(newId)
-    baba3 <- pure(Vector.empty[Long])
-    stmt3 <- bind(pstmt1, (id3, Set("Sushi", "Apple"), Map("zip_code" -> "001-0001"), baba3, List.empty[BigInt]))
-    _ <- get[Unit](stmt3)
-  } yield ()
-
-  val select: Action[List[User]] = get(selectUser)
-  val selectOne: Action[Option[User]] = get(selectUUser)
-
-  val action = for {
-    _ <- remake
-    _ <- insert
-    ret <- select
-    ret2 <- selectOne
-  } yield (ret, ret2)
+  val action: F.Action[List[User]] =
+    remake >>
+      (F.prepare(insertUserQuery) >>= (p => users.traverse(insertUser(p, _)))) >>
+      F.get[List[User]](selectUserQuery)
 
   val cluster = Cluster.builder()
     .addContactPoint(args(0))
     .withPort(args(1).toInt)
     .build()
 
-  val F = implicitly[MonadError[TFuture, Throwable]]
+  implicit val uuidOrd: Ordering[User] = (x: User, y: User) => x.id.compareTo(y.id)
 
   Try(cluster.connect()) map { session =>
-    val f = F.attempt(action.run(session))
-    val r = Await.result(f)
-    r fold (
-      e => e.printStackTrace(),
-      { case (xs, x) => println(x); xs take 100 foreach println }
-    )
+    val Right(xs) = Await.result(action.run(session).attempt)
+    assert(users.sorted === xs.sorted)
+    xs foreach println
   } handle {
-    case e: Throwable => e.printStackTrace()
-  }
-
-  cluster.close()
+    case e: Throwable =>
+      e.printStackTrace()
+      sys.exit(1)
+  } ensure cluster.close()
 }
