@@ -1,6 +1,6 @@
 package agni
 
-import cats.{ Eval, Foldable, MonadError }
+import cats.{ Foldable, MonadError }
 import cats.syntax.either._
 import cats.syntax.option._
 import com.datastax.driver.core.{ ResultSet, Row }
@@ -27,7 +27,7 @@ object Get {
       implicit
       F: MonadError[F, E],
       ev: <:<[Throwable, E]
-    ): F[Unit] = F.catchNonFatal(())
+    ): F[Unit] = F.pure(())
   }
 
   implicit def getOneUnsafe[A: RowDecoder]: Get[A] = new Get[A] {
@@ -36,7 +36,7 @@ object Get {
       F: MonadError[F, E],
       ev: <:<[Throwable, E]
     ): F[A] =
-      Option(result.one).get.decode.fold(F.raiseError(_), F.pure)
+      F.catchNonFatal(result.one.decode.fold(throw _, identity))
   }
 
   implicit def getOne[A: RowDecoder]: Get[Option[A]] = new Get[Option[A]] {
@@ -56,19 +56,29 @@ object Get {
       implicit
       F: MonadError[F, E],
       ev: <:<[Throwable, E]
-    ): F[C[A]] =
-      F.flatMap(F.catchNonFatalEval(Eval.later(result.iterator.asScala)))(to[F, E, A, C])
+    ): F[C[A]] = {
+      val f = Foldable.iteratorFoldM[F, Row, mutable.Builder[A, C[A]]](result.iterator.asScala, cbf.apply) {
+        case (b, a) => a.decode.fold(F.raiseError(_), a => { b += a; F.pure(b) })
+      }
+      F.map(f)(_.result())
+    }
   }
 
-  private[agni] def to[F[_], E, A: RowDecoder, C[_]](xs: Iterator[Row])(
-    implicit
-    F: MonadError[F, E],
-    ev: Throwable <:< E,
-    cbf: CanBuildFrom[Nothing, A, C[A]]
-  ): F[C[A]] = {
-    val f = Foldable.iteratorFoldM[F, Row, mutable.Builder[A, C[A]]](xs, cbf.apply) {
-      case (b, a) => a.decode.fold(F.raiseError(_), a => { b += a; F.pure(b) })
-    }
-    F.map(f)(_.result())
+  implicit val getRowIterator: Get[Iterator[Row]] = new Get[Iterator[Row]] {
+    override def apply[F[_], E](result: ResultSet)(
+      implicit
+      F: MonadError[F, E],
+      ev: Throwable <:< E
+    ): F[Iterator[Row]] =
+      F.catchNonFatal(result.iterator.asScala)
+  }
+
+  implicit val getRowJavaStream: Get[java.util.stream.Stream[Row]] = new Get[java.util.stream.Stream[Row]] {
+    override def apply[F[_], E](result: ResultSet)(
+      implicit
+      F: MonadError[F, E],
+      ev: Throwable <:< E
+    ): F[java.util.stream.Stream[Row]] =
+      F.catchNonFatal(java.util.stream.StreamSupport.stream(result.spliterator(), false))
   }
 }
