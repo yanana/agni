@@ -1,11 +1,14 @@
 package agni.cassandra
 
+import java.lang.reflect.Constructor
 import java.math.BigInteger
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.util
-import java.util.{ Date, UUID }
+import java.util.{ Collections, Date, UUID }
 
+import agni.FakeUDTValue
+import com.datastax.driver.core.DataType.Name
 import com.datastax.driver.core.UserType.Field
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
@@ -226,37 +229,17 @@ class EmptyRow extends UndefinedRow {
   override def getToken(i: Int): Token = new AToken
   override def getToken(name: String): Token = new AToken
 
-  override def getTupleValue(i: Int): TupleValue = {
+  private[this] def tupleValue: TupleValue = {
     val c = classOf[TupleValue]
     val cc = c.getDeclaredConstructor(classOf[TupleType])
     cc.setAccessible(true)
     cc.newInstance(TupleType.of(ProtocolVersion.V3, CodecRegistry.DEFAULT_INSTANCE, DataType.ascii()))
   }
-  override def getTupleValue(name: String): TupleValue = {
-    val c = classOf[TupleValue]
-    val cc = c.getDeclaredConstructor(classOf[TupleType])
-    cc.setAccessible(true)
-    cc.newInstance(TupleType.of(ProtocolVersion.V3, CodecRegistry.DEFAULT_INSTANCE, DataType.ascii()))
-  }
+  override def getTupleValue(i: Int): TupleValue = tupleValue
+  override def getTupleValue(name: String): TupleValue = tupleValue
 
-  override def getUDTValue(i: Int): UDTValue = {
-    val d = classOf[UserType]
-    val dd = d.getDeclaredConstructor(classOf[String], classOf[String], classOf[util.Collection[Field]], classOf[ProtocolVersion], classOf[CodecRegistry])
-    dd.setAccessible(true)
-    val c = classOf[UDTValue]
-    val cc = c.getDeclaredConstructor(classOf[UserType])
-    cc.setAccessible(true)
-    cc.newInstance(dd.newInstance("", "", new util.ArrayList[Field], ProtocolVersion.V3, CodecRegistry.DEFAULT_INSTANCE))
-  }
-  override def getUDTValue(name: String): UDTValue = {
-    val d = classOf[UserType]
-    val dd = d.getDeclaredConstructor(classOf[String], classOf[String], classOf[util.Collection[Field]], classOf[ProtocolVersion], classOf[CodecRegistry])
-    dd.setAccessible(true)
-    val c = classOf[UDTValue]
-    val cc = c.getDeclaredConstructor(classOf[UserType])
-    cc.setAccessible(true)
-    cc.newInstance(dd.newInstance("", "", new util.ArrayList[Field], ProtocolVersion.V3, CodecRegistry.DEFAULT_INSTANCE))
-  }
+  override def getUDTValue(i: Int): UDTValue = FakeUDTValue.get()
+  override def getUDTValue(name: String): UDTValue = FakeUDTValue.get()
 
   override def isNull(i: Int): Boolean = false
   override def isNull(name: String): Boolean = false

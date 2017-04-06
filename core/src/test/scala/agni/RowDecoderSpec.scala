@@ -24,8 +24,12 @@ class RowDecoderSpec extends FunSuite with Checkers {
 
   def checkType[A: RowDecoder]: Assertion = {
     val decoder = RowDecoder.apply[A]
-    val Right(x) = decoder.apply(new EmptyRow)
-    assert(x.isInstanceOf[A])
+    decoder.apply(new EmptyRow) match {
+      case Left(e) =>
+        e.printStackTrace(); fail(e)
+      case Right(x) => assert(x.isInstanceOf[A])
+    }
+
   }
 
   // NamedColumnGetter
