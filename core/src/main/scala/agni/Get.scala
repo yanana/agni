@@ -22,7 +22,7 @@ object Get {
 
   def apply[A](implicit A: Get[A]): Get[A] = A
 
-  implicit def getUnit: Get[Unit] = new Get[Unit] {
+  implicit val getUnit: Get[Unit] = new Get[Unit] {
     override def apply[F[_], E](result: ResultSet)(
       implicit
       F: MonadError[F, E],
