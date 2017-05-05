@@ -189,7 +189,7 @@ trait LowPriorityNamedColumnGetter {
         row.getMap(
           name,
           TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
-          TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
+          TypeToken.of[V](valTag.runtimeClass.asInstanceOf[Class[V]])
         ).asScala.toMap.mapValues(f)
       }
     }

@@ -112,7 +112,7 @@ object IndexedColumnGetter extends LowPriorityIndexedColumnGetter {
         row.getMap(
           i,
           TypeToken.of[K](keyTag.runtimeClass.asInstanceOf[Class[K]]),
-          TypeToken.of[V](keyTag.runtimeClass.asInstanceOf[Class[V]])
+          TypeToken.of[V](valTag.runtimeClass.asInstanceOf[Class[V]])
         ).asScala.toMap.mapValues(f)
       }
     }

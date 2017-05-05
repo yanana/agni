@@ -3,7 +3,7 @@ package std
 
 import java.util.concurrent.Executor
 
-import agni.cache.{ CachedPreparedStatement, CachedPreparedStatementWithGuava }
+import agni.cache.CachedPreparedStatementWithGuava
 import cats.instances.future._
 import com.datastax.driver.core.{ PreparedStatement, ResultSet, Statement }
 import com.google.common.cache.Cache

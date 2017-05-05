@@ -5,7 +5,7 @@ build:
         name: run tests and publish if needed
         code: |
           sbt coverage test coverageReport
-          sbt ++"2.11.8" coverage test coverageReport
+          sbt ++"2.11.11" coverage test coverageReport
 
 deploy:
   steps:
@@ -15,4 +15,4 @@ deploy:
         export PGP_SECRET_RING_PATH=$(mktemp -d)/secring.asc
         echo "${PGP_SECRET}" | base64 --decode > "${PGP_SECRET_RING_PATH}"
         echo "${PGP_PASS}" | sbt publishSigned
-        echo "${PGP_PASS}" | sbt ++2.11.8 publishSigned
+        echo "${PGP_PASS}" | sbt ++2.11.11 publishSigned
