@@ -1,7 +1,7 @@
 package agni
 
 import cats.data.Kleisli
-import cats.{ Eval, MonadError }
+import cats.MonadError
 import com.datastax.driver.core._
 
 import scala.collection.JavaConverters._

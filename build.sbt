@@ -9,16 +9,16 @@ lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scala
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.11.8", "2.12.1")
+  scalaVersion := "2.12.2",
+  crossScalaVersions := Seq("2.11.11", "2.12.2")
 )
 
 val datastaxVersion = "3.2.0"
 val catsVersion = "0.9.0"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
-val scalatestVersion = "3.0.1"
-val catbirdVersion = "0.12.0"
+val scalatestVersion = "3.0.3"
+val catbirdVersion = "0.13.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
@@ -112,8 +112,8 @@ lazy val benchmarks = project.in(file("benchmarks"))
     description := "agni benchmarks",
     moduleName := "agni-benchmarks",
     name := "benchmarks",
-    scalaVersion := "2.12.1",
-    crossScalaVersions := Seq("2.12.1"),
+    scalaVersion := "2.12.2",
+    crossScalaVersions := Seq("2.12.2"),
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
       "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
@@ -129,7 +129,7 @@ lazy val examples = project.in(file("examples"))
     description := "agni examples",
     moduleName := "agni-examples",
     name := "examples",
-    scalaVersion := "2.12.1",
+    scalaVersion := "2.12.2",
     crossScalaVersions := Seq("2.12.1"),
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-simple" % "1.7.13",
