@@ -4,6 +4,7 @@ package twitter.util
 import java.util.concurrent.Executor
 
 import agni.cache.CachedPreparedStatementWithGuava
+import cats.MonadError
 import com.datastax.driver.core.{ PreparedStatement, ResultSet, Statement }
 import com.google.common.cache.Cache
 import com.google.common.util.concurrent.{ FutureCallback, Futures }
@@ -12,6 +13,8 @@ import io.catbird.util._
 
 abstract class Future(implicit _cache: Cache[String, PreparedStatement])
     extends Agni[TFuture, Throwable] with CachedPreparedStatementWithGuava {
+
+  override val F: MonadError[TFuture, Throwable] = twitterFutureInstance
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
