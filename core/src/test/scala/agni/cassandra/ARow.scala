@@ -1,100 +1,20 @@
 package agni.cassandra
 
-import java.lang.reflect.Constructor
 import java.math.BigInteger
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.util
-import java.util.{ Collections, Date, UUID }
+import java.util.{ Date, UUID }
 
 import agni.FakeUDTValue
-import com.datastax.driver.core.DataType.Name
-import com.datastax.driver.core.UserType.Field
 import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
 
 case class ARow(
-    time: Long = 0L,
-    double: Double = 0.0,
-    inet: InetAddress = InetAddress.getByName("127.0.0.1"),
-    float: Float = 0.0f,
-    bytes: ByteBuffer = ByteBuffer.allocate(0),
-    uuid: UUID = UUID.randomUUID(),
-    unsafeBytes: ByteBuffer = ByteBuffer.allocateDirect(0),
-    timestamp: Date = new Date,
-    date: LocalDate = LocalDate.fromMillisSinceEpoch(System.currentTimeMillis()),
-    bool: Boolean = true,
-    decimal: java.math.BigDecimal = java.math.BigDecimal.ZERO,
-    varint: java.math.BigInteger = java.math.BigInteger.ZERO,
-    short: Short = 0.toShort,
-    string: String = "",
-    long: Long = 0L,
-    int: Int = 0,
-    byte: Byte = 0.toByte
+    value: ByteBuffer
 ) extends UndefinedRow {
-
-  override def getTime(i: Int): Long = time
-  override def getTime(name: String): Long = time
-
-  override def getDouble(i: Int): Double = double
-  override def getDouble(name: String): Double = double
-
-  override def getInet(i: Int): InetAddress = inet
-  override def getInet(name: String): InetAddress = inet
-
-  override def getFloat(i: Int): Float = float
-  override def getFloat(name: String): Float = float
-
-  override def getBytes(i: Int): ByteBuffer = bytes
-  override def getBytes(name: String): ByteBuffer = bytes
-
-  override def getUUID(i: Int): UUID = uuid
-  override def getUUID(name: String): UUID = uuid
-
-  override def getBytesUnsafe(i: Int): ByteBuffer = unsafeBytes
-  override def getBytesUnsafe(name: String): ByteBuffer = unsafeBytes
-
-  override def getTimestamp(i: Int): Date = timestamp
-  override def getTimestamp(name: String): Date = timestamp
-
-  override def getList[T](i: Int, elementsType: TypeToken[T]): util.List[T] = new util.ArrayList()
-  override def getList[T](name: String, elementsType: TypeToken[T]): util.List[T] = new util.ArrayList()
-
-  override def getDate(i: Int): LocalDate = date
-  override def getDate(name: String): LocalDate = date
-
-  override def getBool(i: Int): Boolean = bool
-  override def getBool(name: String): Boolean = bool
-
-  override def getDecimal(i: Int): java.math.BigDecimal = decimal
-  override def getDecimal(name: String): java.math.BigDecimal = decimal
-
-  override def getVarint(i: Int): BigInteger = varint
-  override def getVarint(name: String): BigInteger = varint
-
-  override def getSet[T](i: Int, elementsType: TypeToken[T]): util.Set[T] = new util.HashSet()
-  override def getSet[T](name: String, elementsType: TypeToken[T]): util.Set[T] = new util.HashSet()
-
-  override def getShort(i: Int): Short = short
-  override def getShort(name: String): Short = short
-
-  override def getString(i: Int): String = string
-  override def getString(name: String): String = string
-
-  override def getMap[K, V](i: Int, keysType: TypeToken[K], valuesType: TypeToken[V]): util.Map[K, V] = new util.HashMap()
-  override def getMap[K, V](name: String, keysType: TypeToken[K], valuesType: TypeToken[V]): util.Map[K, V] = new util.HashMap()
-
-  override def getLong(i: Int): Long = long
-  override def getLong(name: String): Long = long
-
-  override def getInt(i: Int): Int = int
-  override def getInt(name: String): Int = int
-
-  override def getByte(i: Int): Byte = byte
-  override def getByte(name: String): Byte = byte
-
-  override def isNull(i: Int): Boolean = false
-  override def isNull(name: String): Boolean = false
+  override def getBytesUnsafe(i: Int): ByteBuffer = value
+  override def getBytesUnsafe(name: String): ByteBuffer = value
 }
 
 class ANullRow extends UndefinedRow {
