@@ -1,4 +1,6 @@
 import java.util.UUID
+import java.time.{ LocalDate, ZoneId }
+import java.util.{Date, UUID}
 import java.util.concurrent.Executors
 
 import agni.twitter.util.Future
@@ -7,12 +9,13 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
 import com.datastax.driver.core._
-import com.datastax.driver.core.querybuilder.{ Insert, Select, QueryBuilder => Q }
-import com.twitter.util.{ Await, Try }
+import com.datastax.driver.core.querybuilder.{Insert, Select, QueryBuilder => Q}
+import com.twitter.util.{Await, Try}
 import io.catbird.util._
 import org.scalatest.Matchers
 
 import agni.cache.default._
+
 object F extends Future
 
 // Usage: sbt "examples/runMain Main 127.0.0.1 9042"
@@ -24,12 +27,15 @@ object Main extends App with Matchers {
     id: UUID,
     first_name: String,
     last_name: String,
-    birth: LocalDate,
+    birth: Date,
     gender: String,
     works: List[String]
   )
 
-  implicit def tuple3to(a: (Int, Int, Int)): LocalDate = (LocalDate.fromYearMonthDay _).tupled(a)
+  implicit def tuple3to(a: (Int, Int, Int)): Date = {
+    val local = LocalDate.of(a._1, a._2, a._3)
+    Date.from(local.atStartOfDay(ZoneId.systemDefault()).toInstant)
+  }
 
   val users = List(
     User(UUID.randomUUID(), "Edna", "O'Brien", (1932, 12, 15), "female", List("The Country Girls", "Girl with Green Eyes", "Girls in Their Married Bliss", "August is a Wicked Month", "Casualties of Peace", "Mother Ireland")),

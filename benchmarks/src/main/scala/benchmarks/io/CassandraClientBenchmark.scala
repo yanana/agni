@@ -21,7 +21,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 
 @BenchmarkMode(Array(Mode.Throughput))
-@Warmup(iterations = 5, time = 1)
+@Warmup(iterations = 10, time = 1)
 @Measurement(iterations = 10, time = 3)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(1)
@@ -216,17 +216,33 @@ class StdTryBenchmark extends CassandraClientBenchmark {
     l <- ST.get[Option[User]](b)
   } yield l
 
+  def getAsync(uuid: UUID): ST.Action[Option[User]] = for {
+    b <- ST.prepare(selectUser).andThen(ST.bind(uuid))
+    l <- ST.get[Option[User]](b)
+  } yield l
+
   @Benchmark
   def one: Option[User] = {
+<<<<<<< HEAD
     get.run(session).get
+=======
+    val f = getAsync(uuid)
+    f.run(session).get
+>>>>>>> Change State scope to Thread from Benchmark
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
+<<<<<<< HEAD
     val fa = get
     val fb = get
     val fc = get
 
+=======
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
+>>>>>>> Change State scope to Thread from Benchmark
     val f = (fa |@| fb |@| fc).tupled
 
     f.run(session).get
@@ -243,6 +259,11 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
     l <- SF.getAsync[Option[User]](b)
   } yield l
 
+  def getAsync(uuid: UUID): SF.Action[Option[User]] = for {
+    b <- SF.prepare(selectUser).andThen(SF.bind(uuid))
+    l <- SF.getAsync[Option[User]](b)
+  } yield l
+
   @Benchmark
   def one: Option[User] = {
     val f = getAsync(uuid)
@@ -254,7 +275,10 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+<<<<<<< HEAD
 
+=======
+>>>>>>> Change State scope to Thread from Benchmark
     val f = (fa |@| fb |@| fc).tupled
 
     Await.result(f.run(session), Duration.Inf)
@@ -273,6 +297,11 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
     l <- TF.getAsync[Option[User]](b)
   } yield l
 
+  def getAsync(uuid: UUID): TF.Action[Option[User]] = for {
+    b <- TF.prepare(selectUser).andThen(TF.bind(uuid))
+    l <- TF.getAsync[Option[User]](b)
+  } yield l
+
   @Benchmark
   def one: Option[User] = {
     val f = getAsync(uuid)
@@ -284,7 +313,10 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+<<<<<<< HEAD
 
+=======
+>>>>>>> Change State scope to Thread from Benchmark
     val f = (fa |@| fb |@| fc).tupled
 
     TAwait.result(f.run(session))
@@ -360,10 +392,20 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
 @State(Scope.Thread)
 class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
 
+<<<<<<< HEAD
   @inline def getAsync(uuid: UUID): Future[Option[User]] = {
     val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
     val pp = Promise[Option[User]]
     Futures.addCallback(session.executeAsync(p.bind(uuid)), new FutureCallback[ResultSet] {
+=======
+  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+
+  def getAsync(uuid: UUID): Future[Option[User]] = {
+    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
+    val bound = p.bind(uuid)
+    val pp = Promise[Option[User]]
+    Futures.addCallback(session.executeAsync(bound), new FutureCallback[ResultSet] {
+>>>>>>> Change State scope to Thread from Benchmark
       import scala.collection.JavaConverters._
       override def onFailure(t: Throwable): Unit = pp.failure(t)
       override def onSuccess(result: ResultSet): Unit = {
