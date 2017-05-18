@@ -3,7 +3,7 @@ package benchmarks.io
 import java.util.UUID
 import java.util.concurrent.{ Executor, Executors, TimeUnit }
 
-import agni._
+import agni.{ Binder, Result, RowDecoder }
 import cats.instances.try_._
 import cats.instances.future._
 import cats.instances.list._
@@ -23,19 +23,21 @@ import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.Throughput))
 @Warmup(iterations = 5, time = 1)
-@Measurement(iterations = 5, time = 3)
+@Measurement(iterations = 10, time = 3)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(1)
 abstract class CassandraClientBenchmark {
 
-  implicit val context: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
+  implicit val context: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
-  // import agni.cache.default._
-  implicit val cache: Cache[String, PreparedStatement] = CaffeinatedGuava.build(Caffeine.newBuilder())
+  implicit val cache: Cache[String, PreparedStatement] =
+    CaffeinatedGuava.build(Caffeine.newBuilder())
 
   object SF extends agni.std.Future
   object TF extends agni.twitter.util.Future
   object ST extends agni.std.Try
+  object MF extends agni.monix.Task
 
   case class User(
     id: UUID = UUID.randomUUID(),
@@ -62,8 +64,8 @@ abstract class CassandraClientBenchmark {
   val keyspace = "agni_bench"
 
   val remake: ST.Action[Unit] = for {
-    _ <- ST.get[Unit](s"""CREATE KEYSPACE IF NOT EXISTS ${keyspace} WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }""".stripMargin)
-    _ <- ST.get[Unit](s"USE ${keyspace}")
+    _ <- ST.get[Unit](s"""CREATE KEYSPACE IF NOT EXISTS $keyspace WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }""".stripMargin)
+    _ <- ST.get[Unit](s"USE $keyspace")
     _ <- ST.get[Unit](s"DROP TABLE IF EXISTS user")
     _ <- ST.get[Unit](s"""CREATE TABLE user (id uuid PRIMARY KEY, first_name text, last_name text, gender ascii, works list<text>)""".stripMargin)
   } yield ()
@@ -96,7 +98,7 @@ abstract class CassandraClientBenchmark {
   @Setup()
   def setup(): Unit = {
     cluster = Cluster.builder()
-      .addContactPoint(sys.env.getOrElse("CASSANDRA_HOST", "localhsot"))
+      .addContactPoint(sys.env.getOrElse("CASSANDRA_HOST", "localhost"))
       .withPort(sys.env.getOrElse("CASSANDRA_PORT", "9042").toInt)
       .withProtocolVersion(ProtocolVersion.V3)
       .build()
@@ -327,6 +329,51 @@ class AgniTwitterAsyncBenchmark extends CassandraClientBenchmark {
     TAwait.result(f.run(session))
   }
 }
+
+class AgniMonixAsyncBenchmark extends CassandraClientBenchmark {
+  import agni.monix.cats._
+  import monix.execution.Scheduler
+  import scala.concurrent.duration._
+
+  implicit val executor: Executor = MoreExecutors.directExecutor()
+  implicit val sche: Scheduler = Scheduler.apply(context)
+
+  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
+
+  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+
+  @Benchmark
+  def one: Option[User] = {
+    val f: MF.Action[Option[User]] = for {
+      b <- MF.prepare(selectUser).andThen(MF.bind(uuid))
+      l <- MF.getAsync[Option[User]](b)
+    } yield l
+    Await.result(f.run(session).runAsync, 10 seconds)
+  }
+
+  @Benchmark
+  def three: (Option[User], Option[User], Option[User]) = {
+    val fa: MF.Action[Option[User]] = for {
+      b <- MF.prepare(selectUser).andThen(MF.bind(uuid))
+      l <- MF.getAsync[Option[User]](b)
+    } yield l
+
+    val fb: MF.Action[Option[User]] = for {
+      b <- MF.prepare(selectUser).andThen(MF.bind(uuid2))
+      l <- MF.getAsync[Option[User]](b)
+    } yield l
+
+    val fc: MF.Action[Option[User]] = for {
+      b <- MF.prepare(selectUser).andThen(MF.bind(uuid3))
+      l <- MF.getAsync[Option[User]](b)
+    } yield l
+
+    val f = (fa |@| fb |@| fc).tupled
+
+    Await.result(f.run(session).runAsync, 10 seconds)
+  }
+}
+
 class CasJavaDriverAsyncBenchmark extends CassandraClientBenchmark {
 
   val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))

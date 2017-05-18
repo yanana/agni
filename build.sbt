@@ -2,10 +2,15 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`)
-  .dependsOn(core, `twitter-util`)
+  .aggregate(core, `twitter-util`, monix)
+  .dependsOn(core, `twitter-util`, monix)
 
-lazy val allSettings = buildSettings ++ baseSettings ++ publishSettings ++ scalariformSettings
+lazy val allSettings = Seq.concat(
+  buildSettings,
+  baseSettings,
+  publishSettings,
+  scalariformSettings
+)
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
@@ -19,6 +24,7 @@ val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
 val scalatestVersion = "3.0.3"
 val catbirdVersion = "0.13.0"
+val monixVersion = "2.3.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
@@ -107,6 +113,21 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
   )
   .dependsOn(core)
 
+lazy val monix = project.in(file("monix"))
+  .settings(
+    description := "agni monix",
+    moduleName := "agni-monix",
+    name := "monix"
+  )
+  .settings(allSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "io.monix" %% "monix-eval" % monixVersion,
+      "io.monix" %% "monix-cats" % monixVersion
+    )
+  )
+  .dependsOn(core)
+
 lazy val benchmarks = project.in(file("benchmarks"))
   .settings(
     description := "agni benchmarks",
@@ -116,13 +137,15 @@ lazy val benchmarks = project.in(file("benchmarks"))
     crossScalaVersions := Seq("2.12.2"),
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
+      "io.monix" %% "monix-eval" % monixVersion,
+      "io.monix" %% "monix-cats" % monixVersion,
       "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
       "com.github.ben-manes.caffeine" % "guava" % "2.4.0"
     )
   )
   .enablePlugins(JmhPlugin)
   .settings(noPublishSettings)
-  .dependsOn(`twitter-util`)
+  .dependsOn(`twitter-util`, monix)
 
 lazy val examples = project.in(file("examples"))
   .settings(
