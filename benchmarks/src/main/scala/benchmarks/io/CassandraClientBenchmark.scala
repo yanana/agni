@@ -20,7 +20,6 @@ import org.openjdk.jmh.annotations._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 
-@State(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.Throughput))
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 10, time = 3)
@@ -28,16 +27,18 @@ import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 @Fork(1)
 abstract class CassandraClientBenchmark {
 
+  implicit val executor: Executor = MoreExecutors.directExecutor()
+
   implicit val context: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
   implicit val cache: Cache[String, PreparedStatement] =
     CaffeinatedGuava.build(Caffeine.newBuilder())
 
-  object SF extends agni.std.Future
-  object TF extends agni.twitter.util.Future
+  implicit val bindUUID: Binder[UUID] =
+    (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
+
   object ST extends agni.std.Try
-  object MF extends agni.monix.Task
 
   case class User(
     id: UUID = UUID.randomUUID(),
@@ -53,11 +54,11 @@ abstract class CassandraClientBenchmark {
   val uuid2 = UUID.randomUUID()
   val uuid3 = UUID.randomUUID()
 
-  val users = User(uuid, "Edna", "O'Brien", "female", List("The Country Girls", "Girl with Green Eyes", "Girls in Their Married Bliss", "August is a Wicked Month", "Casualties of Peace", "Mother Ireland")) ::
-    User(uuid2, "Benedict", "Kiely", "male", List("The Collected Stories of Benedict Kiely", "The Trout in the Turnhole", "A Letter to Peachtree", "The State of Ireland: A Novella and Seventeen Short Stories", "A Cow in the House", "A Ball of Malt and Madame Butterfly", "A Journey to the Seven Streams")) ::
-    User(uuid3, "Darren", "Shan", "male", List("Cirque Du Freak", "The Vampire's Assistant", "Tunnels of Blood")) ::
-    (1 to 100).map(_ =>
-      User(UUID.randomUUID(), "Darren", "Shan", "male", List("Cirque Du Freak", "The Vampire's Assistant", "Tunnels of Blood"))).toList
+  val users =
+    User(uuid, "Edna", "O'Brien", "female", List("The Country Girls", "Girl with Green Eyes", "Girls in Their Married Bliss", "August is a Wicked Month", "Casualties of Peace", "Mother Ireland")) ::
+      User(uuid2, "Benedict", "Kiely", "male", List("The Collected Stories of Benedict Kiely", "The Trout in the Turnhole", "A Letter to Peachtree", "The State of Ireland: A Novella and Seventeen Short Stories", "A Cow in the House", "A Ball of Malt and Madame Butterfly", "A Journey to the Seven Streams")) ::
+      User(uuid3, "Darren", "Shan", "male", List("Cirque Du Freak", "The Vampire's Assistant", "Tunnels of Blood")) ::
+      Nil
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
@@ -87,6 +88,8 @@ abstract class CassandraClientBenchmark {
     _ <- users.traverse(insertUser(pstmt.setIdempotent(true).setConsistencyLevel(ConsistencyLevel.ALL), _))
   } yield ()
 
+  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+
   val action: ST.Action[Unit] = for {
     _ <- remake
     _ <- insert
@@ -108,13 +111,12 @@ abstract class CassandraClientBenchmark {
 
   @TearDown
   def tearDown(): Unit = {
-    ST.clear()
-    SF.clear()
-    ST.clear()
+    cache.cleanUp()
     cluster.close()
   }
 }
 
+@State(Scope.Thread)
 class AgniBenchmark extends CassandraClientBenchmark {
 
   val selectUsers: Select = Q.select("id", "first_name", "last_name", "gender", "works").from("user") // .limit(3)
@@ -185,10 +187,6 @@ class AgniBenchmark extends CassandraClientBenchmark {
     f.run(session).get
   }
 
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
-
-  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
-
   @Benchmark
   def one: Option[User] = {
     val f: ST.Action[Option[User]] = for {
@@ -210,37 +208,24 @@ class AgniBenchmark extends CassandraClientBenchmark {
   }
 }
 
-class AgniSyncBenchmark extends CassandraClientBenchmark {
+@State(Scope.Thread)
+class StdTryBenchmark extends CassandraClientBenchmark {
 
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
-
-  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
+  @inline def get: ST.Action[Option[User]] = for {
+    b <- ST.prepare(selectUser).andThen(ST.bind(uuid))
+    l <- ST.get[Option[User]](b)
+  } yield l
 
   @Benchmark
   def one: Option[User] = {
-    val f: ST.Action[Option[User]] = for {
-      b <- ST.prepare(selectUser).andThen(ST.bind(uuid))
-      l <- ST.get[Option[User]](b)
-    } yield l
-    f.run(session).get
+    get.run(session).get
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val fa: ST.Action[Option[User]] = for {
-      b <- ST.prepare(selectUser).andThen(ST.bind(uuid))
-      l <- ST.get[Option[User]](b)
-    } yield l
-
-    val fb: ST.Action[Option[User]] = for {
-      b <- ST.prepare(selectUser).andThen(ST.bind(uuid2))
-      l <- ST.get[Option[User]](b)
-    } yield l
-
-    val fc: ST.Action[Option[User]] = for {
-      b <- ST.prepare(selectUser).andThen(ST.bind(uuid3))
-      l <- ST.get[Option[User]](b)
-    } yield l
+    val fa = get
+    val fb = get
+    val fc = get
 
     val f = (fa |@| fb |@| fc).tupled
 
@@ -248,39 +233,27 @@ class AgniSyncBenchmark extends CassandraClientBenchmark {
   }
 }
 
-class AgniAsyncBenchmark extends CassandraClientBenchmark {
+@State(Scope.Thread)
+class StdFutureBenchmark extends CassandraClientBenchmark {
 
-  implicit val executor: Executor = MoreExecutors.directExecutor()
+  object SF extends agni.std.Future
 
-  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
-
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+  @inline def getAsync(uuid: UUID): SF.Action[Option[User]] = for {
+    b <- SF.prepare(selectUser).andThen(SF.bind(uuid))
+    l <- SF.getAsync[Option[User]](b)
+  } yield l
 
   @Benchmark
   def one: Option[User] = {
-    val f: SF.Action[Option[User]] = for {
-      b <- SF.prepare(selectUser).andThen(SF.bind(uuid))
-      l <- SF.getAsync[Option[User]](b)
-    } yield l
+    val f = getAsync(uuid)
     Await.result(f.run(session), Duration.Inf)
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val fa: SF.Action[Option[User]] = for {
-      b <- SF.prepare(selectUser).andThen(SF.bind(uuid))
-      l <- SF.getAsync[Option[User]](b)
-    } yield l
-
-    val fb: SF.Action[Option[User]] = for {
-      b <- SF.prepare(selectUser).andThen(SF.bind(uuid2))
-      l <- SF.getAsync[Option[User]](b)
-    } yield l
-
-    val fc: SF.Action[Option[User]] = for {
-      b <- SF.prepare(selectUser).andThen(SF.bind(uuid3))
-      l <- SF.getAsync[Option[User]](b)
-    } yield l
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
 
     val f = (fa |@| fb |@| fc).tupled
 
@@ -288,41 +261,29 @@ class AgniAsyncBenchmark extends CassandraClientBenchmark {
   }
 }
 
-class AgniTwitterAsyncBenchmark extends CassandraClientBenchmark {
+@State(Scope.Thread)
+class TwitterFutureBenchmark extends CassandraClientBenchmark {
   import com.twitter.util.{ Await => TAwait }
   import io.catbird.util.twitterFutureInstance
 
-  implicit val executor: Executor = MoreExecutors.directExecutor()
+  object TF extends agni.twitter.util.Future
 
-  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
-
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+  @inline def getAsync(uuid: UUID): TF.Action[Option[User]] = for {
+    b <- TF.prepare(selectUser).andThen(TF.bind(uuid))
+    l <- TF.getAsync[Option[User]](b)
+  } yield l
 
   @Benchmark
   def one: Option[User] = {
-    val f: TF.Action[Option[User]] = for {
-      b <- TF.prepare(selectUser).andThen(TF.bind(uuid))
-      l <- TF.getAsync[Option[User]](b)
-    } yield l
+    val f = getAsync(uuid)
     TAwait.result(f.run(session))
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val fa: TF.Action[Option[User]] = for {
-      b <- TF.prepare(selectUser).andThen(TF.bind(uuid))
-      l <- TF.getAsync[Option[User]](b)
-    } yield l
-
-    val fb: TF.Action[Option[User]] = for {
-      b <- TF.prepare(selectUser).andThen(TF.bind(uuid2))
-      l <- TF.getAsync[Option[User]](b)
-    } yield l
-
-    val fc: TF.Action[Option[User]] = for {
-      b <- TF.prepare(selectUser).andThen(TF.bind(uuid3))
-      l <- TF.getAsync[Option[User]](b)
-    } yield l
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
 
     val f = (fa |@| fb |@| fc).tupled
 
@@ -330,57 +291,79 @@ class AgniTwitterAsyncBenchmark extends CassandraClientBenchmark {
   }
 }
 
-class AgniMonixAsyncBenchmark extends CassandraClientBenchmark {
+@State(Scope.Thread)
+class MonixTaskBenchmark extends CassandraClientBenchmark {
   import agni.monix.cats._
   import monix.execution.Scheduler
   import scala.concurrent.duration._
 
-  implicit val executor: Executor = MoreExecutors.directExecutor()
+  object MF extends agni.monix.Task
+
   implicit val sche: Scheduler = Scheduler.apply(context)
 
-  implicit val bindUUID: Binder[UUID] = (pstmt: PreparedStatement, a: UUID) => pstmt.bind(a)
-
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+  @inline def getAsync(uuid: UUID): MF.Action[Option[User]] = for {
+    b <- MF.prepare(selectUser).andThen(MF.bind(uuid))
+    l <- MF.getAsync[Option[User]](b)
+  } yield l
 
   @Benchmark
   def one: Option[User] = {
-    val f: MF.Action[Option[User]] = for {
-      b <- MF.prepare(selectUser).andThen(MF.bind(uuid))
-      l <- MF.getAsync[Option[User]](b)
-    } yield l
-    Await.result(f.run(session).runAsync, 10 seconds)
+    val f = getAsync(uuid)
+    Await.result(f.run(session).runAsync, 10.seconds)
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val fa: MF.Action[Option[User]] = for {
-      b <- MF.prepare(selectUser).andThen(MF.bind(uuid))
-      l <- MF.getAsync[Option[User]](b)
-    } yield l
-
-    val fb: MF.Action[Option[User]] = for {
-      b <- MF.prepare(selectUser).andThen(MF.bind(uuid2))
-      l <- MF.getAsync[Option[User]](b)
-    } yield l
-
-    val fc: MF.Action[Option[User]] = for {
-      b <- MF.prepare(selectUser).andThen(MF.bind(uuid3))
-      l <- MF.getAsync[Option[User]](b)
-    } yield l
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
 
     val f = (fa |@| fb |@| fc).tupled
 
-    Await.result(f.run(session).runAsync, 10 seconds)
+    Await.result(f.run(session).runAsync, 10.seconds)
   }
 }
 
-class CasJavaDriverAsyncBenchmark extends CassandraClientBenchmark {
+@State(Scope.Thread)
+class FS2TaskBenchmark extends CassandraClientBenchmark {
+  import fs2.interop.cats._
+  import fs2.Strategy
+  import scala.concurrent.duration._
 
-  val selectUser: Select.Where = Q.select.from("user").where(Q.eq("id", Q.bindMarker()))
+  object FF extends agni.fs2.Task
 
-  def getAsync(stmt: Statement): Future[Option[User]] = {
+  implicit val sche: Strategy = Strategy.fromExecutionContext(context)
+
+  @inline def getAsync(uuid: UUID): FF.Action[Option[User]] = for {
+    b <- FF.prepare(selectUser).andThen(FF.bind(uuid))
+    l <- FF.getAsync[Option[User]](b)
+  } yield l
+
+  @Benchmark
+  def one: Option[User] = {
+    val f = getAsync(uuid)
+    Await.result(f.run(session).unsafeRunAsyncFuture(), 10.seconds)
+  }
+
+  @Benchmark
+  def three: (Option[User], Option[User], Option[User]) = {
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
+
+    val f = (fa |@| fb |@| fc).tupled
+
+    Await.result(f.run(session).unsafeRunAsyncFuture(), 10.seconds)
+  }
+}
+
+@State(Scope.Thread)
+class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
+
+  @inline def getAsync(uuid: UUID): Future[Option[User]] = {
+    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
     val pp = Promise[Option[User]]
-    Futures.addCallback(session.executeAsync(stmt), new FutureCallback[ResultSet] {
+    Futures.addCallback(session.executeAsync(p.bind(uuid)), new FutureCallback[ResultSet] {
       import scala.collection.JavaConverters._
       override def onFailure(t: Throwable): Unit = pp.failure(t)
       override def onSuccess(result: ResultSet): Unit = {
@@ -400,16 +383,14 @@ class CasJavaDriverAsyncBenchmark extends CassandraClientBenchmark {
 
   @Benchmark
   def one: Option[User] = {
-    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
-    Await.result(getAsync(p.bind(uuid)), Duration.Inf)
+    Await.result(getAsync(uuid), Duration.Inf)
   }
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
-    val fa = getAsync(p.bind(uuid))
-    val fb = getAsync(p.bind(uuid2))
-    val fc = getAsync(p.bind(uuid3))
+    val fa = getAsync(uuid)
+    val fb = getAsync(uuid2)
+    val fc = getAsync(uuid3)
 
     val f = (fa |@| fb |@| fc).tupled
 

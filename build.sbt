@@ -2,8 +2,8 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`, monix)
-  .dependsOn(core, `twitter-util`, monix)
+  .aggregate(core, `twitter-util`, monix, fs2)
+  .dependsOn(core, `twitter-util`, monix, fs2)
 
 lazy val allSettings = Seq.concat(
   buildSettings,
@@ -25,6 +25,7 @@ val scalacheckVersion = "1.13.5"
 val scalatestVersion = "3.0.3"
 val catbirdVersion = "0.13.0"
 val monixVersion = "2.3.0"
+val fs2Version = "0.9.6"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
@@ -128,6 +129,21 @@ lazy val monix = project.in(file("monix"))
   )
   .dependsOn(core)
 
+lazy val fs2 = project.in(file("fs2"))
+  .settings(
+    description := "agni fs2",
+    moduleName := "agni-fs2",
+    name := "fs2"
+  )
+  .settings(allSettings: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      "co.fs2" %% "fs2-core" % fs2Version,
+      "co.fs2" %% "fs2-cats" % "0.3.0"
+    )
+  )
+  .dependsOn(core)
+
 lazy val benchmarks = project.in(file("benchmarks"))
   .settings(
     description := "agni benchmarks",
@@ -139,13 +155,15 @@ lazy val benchmarks = project.in(file("benchmarks"))
       "io.catbird" %% "catbird-util" % catbirdVersion,
       "io.monix" %% "monix-eval" % monixVersion,
       "io.monix" %% "monix-cats" % monixVersion,
+      "co.fs2" %% "fs2-core" % fs2Version,
+      "co.fs2" %% "fs2-cats" % "0.3.0",
       "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
       "com.github.ben-manes.caffeine" % "guava" % "2.4.0"
     )
   )
   .enablePlugins(JmhPlugin)
   .settings(noPublishSettings)
-  .dependsOn(`twitter-util`, monix)
+  .dependsOn(`twitter-util`, monix, fs2)
 
 lazy val examples = project.in(file("examples"))
   .settings(
