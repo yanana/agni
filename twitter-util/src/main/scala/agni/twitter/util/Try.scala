@@ -11,7 +11,7 @@ import io.catbird.util._
 abstract class Try(implicit _cache: Cache[String, PreparedStatement])
     extends Agni[TTry, Throwable] with CachedPreparedStatementWithGuava {
 
-  override val F: MonadError[TTry, Throwable] = twitterTryInstance
+  override implicit val F: MonadError[TTry, Throwable] = twitterTryInstance
 
   protected val cache: Cache[String, PreparedStatement] = _cache
 }

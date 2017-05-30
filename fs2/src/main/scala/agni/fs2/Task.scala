@@ -35,7 +35,7 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
             cb(t.asLeft)
 
           def onSuccess(result: ResultSet): Unit =
-            cb(Either.fromTry(Get[A].apply[Try, Throwable](result)))
+            cb(Either.fromTry(Get[A].apply[Try, Throwable](result, ver(s))))
         }, ex)
       }
     }

@@ -1,234 +1,690 @@
 package agni
 
-import com.datastax.driver.core.{ BoundStatement, PreparedStatement }
-import shapeless._
-import shapeless.ops.hlist._
+import cats.syntax.either._
+import com.datastax.driver.core.{ BoundStatement, ProtocolVersion }
+import shapeless.{ ::, HList, HNil, LabelledGeneric, Lazy, Witness }
+import shapeless.labelled.FieldType
 
 trait Binder[A] {
-  def apply(pstmt: PreparedStatement, a: A): BoundStatement
+  def apply(bound: BoundStatement, version: ProtocolVersion, a: A): Result[BoundStatement]
 }
 
-object Binder extends LowPriorityBinder with TupleBinder {
+object Binder extends LowPriorityBinder with TupleBind {
+
   def apply[A](implicit A: Binder[A]) = A
+
+  implicit val bindHnil: Binder[HNil] = new Binder[HNil] {
+    override def apply(bound: BoundStatement, version: ProtocolVersion, a: HNil): Result[BoundStatement] = Right(bound)
+  }
+
+  implicit def bindLabelledHList[K <: Symbol, H, T <: HList](
+    implicit
+    K: Witness.Aux[K],
+    H: Lazy[RowSerializer[H]],
+    T: Lazy[Binder[T]]
+  ): Binder[FieldType[K, H] :: T] =
+    new Binder[FieldType[K, H] :: T] {
+      override def apply(bound: BoundStatement, version: ProtocolVersion, xs: FieldType[K, H] :: T): Result[BoundStatement] =
+        xs match {
+          case h :: t => for {
+            _ <- H.value.apply(bound, K.value.name, h, version)
+            r <- T.value.apply(bound, version, t)
+          } yield r
+        }
+    }
+
+  implicit def bindSingle[A](implicit A: RowSerializer[A]): Binder[A] = new Binder[A] {
+    override def apply(bound: BoundStatement, version: ProtocolVersion, a: A): Result[BoundStatement] =
+      A.apply(bound, 0, a, version)
+  }
 }
 
 trait LowPriorityBinder {
 
-  implicit val hnilBinder: Binder[HNil] = new Binder[HNil] {
-    override def apply(pstmt: PreparedStatement, a: HNil): BoundStatement = pstmt.bind()
-  }
-
-  implicit def hlistBinder[H <: HList, O <: HList](
+  implicit def bindCaseClass[A, R <: HList](
     implicit
-    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
-    toTraversableAux: ToTraversable.Aux[O, List, Object]
-  ): Binder[H] = new Binder[H] {
-    override def apply(pstmt: PreparedStatement, a: H): BoundStatement =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
-  }
-
-  implicit def ccBinder[A, H <: HList, O <: HList](
-    implicit
-    gen: Generic.Aux[A, H],
-    mapperAux: Mapper.Aux[scalaToJava.type, H, O],
-    toTraversableAux: ToTraversable.Aux[O, List, Object]
-  ): Binder[A] = new Binder[A] {
-    override def apply(pstmt: PreparedStatement, a: A): BoundStatement = {
-      pstmt.bind(gen.to(a).map(scalaToJava).toList[Object]: _*)
+    gen: LabelledGeneric.Aux[A, R],
+    bind: Lazy[Binder[R]]
+  ): Binder[A] =
+    new Binder[A] {
+      override def apply(bound: BoundStatement, version: ProtocolVersion, a: A): Result[BoundStatement] =
+        bind.value.apply(bound, version, gen.to(a))
     }
-  }
+
 }
 
-trait TupleBinder {
-  import shapeless.ops.tuple.{ ToTraversable => _, _ }
-  import shapeless.syntax.std.tuple._
+trait TupleBind {
 
-  implicit def tuple2Binder[A, B, OL <: HList](
+  implicit def bindTuple2[A, B](
     implicit
-    mapperAux: Mapper.Aux[(A, B), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B]
   ) = new Binder[(A, B)] {
-    def apply(pstmt: PreparedStatement, a: (A, B)): BoundStatement =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+    } yield bound
   }
 
-  implicit def tuple3Binder[A, B, C, OL <: HList](
+  implicit def bindTuple3[A, B, C](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C]
   ) = new Binder[(A, B, C)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+    } yield bound
   }
-
-  implicit def tuple4Binder[A, B, C, D, OL <: HList](
+  implicit def bindTuple4[A, B, C, D](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D]
   ) = new Binder[(A, B, C, D)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+    } yield bound
   }
-
-  implicit def tuple5Binder[A, B, C, D, E, OL <: HList](
+  implicit def bindTuple5[A, B, C, D, E](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E]
   ) = new Binder[(A, B, C, D, E)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+    } yield bound
   }
-
-  implicit def tuple6Binder[A, B, C, D, E, F, OL <: HList](
+  implicit def bindTuple6[A, B, C, D, E, F](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F]
   ) = new Binder[(A, B, C, D, E, F)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+    } yield bound
   }
-
-  implicit def tuple7Binder[A, B, C, D, E, F, G, O <: HList](
+  implicit def bindTuple7[A, B, C, D, E, F, G](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G), scalaToJava.type, O],
-    toTraversableAux: ToTraversable.Aux[O, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G]
   ) = new Binder[(A, B, C, D, E, F, G)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+    } yield bound
   }
-
-  implicit def tuple8Binder[A, B, C, D, E, F, G, H, OL <: HList](
+  implicit def bindTuple8[A, B, C, D, E, F, G, H](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H]
   ) = new Binder[(A, B, C, D, E, F, G, H)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+    } yield bound
   }
-
-  implicit def tuple9Binder[A, B, C, D, E, F, G, H, I, OL <: HList](
+  implicit def bindTuple9[A, B, C, D, E, F, G, H, I](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I]
   ) = new Binder[(A, B, C, D, E, F, G, H, I)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 3, xs._3, version)
+      _ <- D.apply(bound, 2, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+    } yield bound
   }
-
-  implicit def tuple10Binder[A, B, C, D, E, F, G, H, I, J, OL <: HList](
+  implicit def bindTuple10[A, B, C, D, E, F, G, H, I, J](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+    } yield bound
   }
-
-  implicit def tuple11Binder[A, B, C, D, E, F, G, H, I, J, K, OL <: HList](
+  implicit def bindTuple11[A, B, C, D, E, F, G, H, I, J, K](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+    } yield bound
   }
-
-  implicit def tuple12Binder[A, B, C, D, E, F, G, H, I, J, K, L, OL <: HList](
+  implicit def bindTuple12[A, B, C, D, E, F, G, H, I, J, K, L](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 11, xs._11, version)
+      _ <- L.apply(bound, 12, xs._12, version)
+    } yield bound
   }
-
-  implicit def tuple13Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, OL <: HList](
+  implicit def bindTuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+    } yield bound
   }
-
-  implicit def tuple14Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, OL <: HList](
+  implicit def bindTuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+    } yield bound
   }
-
-  implicit def tuple15Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, OL <: HList](
+  implicit def bindTuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+    } yield bound
   }
-
-  implicit def tuple16Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, OL <: HList](
+  implicit def bindTuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+    } yield bound
   }
-
-  implicit def tuple17Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, OL <: HList](
+  implicit def bindTuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+    } yield bound
   }
-
-  implicit def tuple18Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, OL <: HList](
+  implicit def bindTuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q],
+    R: RowSerializer[R]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+      _ <- R.apply(bound, 17, xs._18, version)
+    } yield bound
   }
-
-  implicit def tuple19Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, OL <: HList](
+  implicit def bindTuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q],
+    R: RowSerializer[R],
+    S: RowSerializer[S]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+      _ <- R.apply(bound, 17, xs._18, version)
+      _ <- S.apply(bound, 18, xs._19, version)
+    } yield bound
   }
-
-  implicit def tuple20Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, OL <: HList](
+  implicit def bindTuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q],
+    R: RowSerializer[R],
+    S: RowSerializer[S],
+    T: RowSerializer[T]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+      _ <- R.apply(bound, 17, xs._18, version)
+      _ <- S.apply(bound, 18, xs._19, version)
+      _ <- T.apply(bound, 19, xs._20, version)
+    } yield bound
   }
-
-  implicit def tuple21Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, OL <: HList](
+  implicit def bindTuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q],
+    R: RowSerializer[R],
+    S: RowSerializer[S],
+    T: RowSerializer[T],
+    U: RowSerializer[U]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+      _ <- R.apply(bound, 17, xs._18, version)
+      _ <- S.apply(bound, 18, xs._19, version)
+      _ <- T.apply(bound, 19, xs._20, version)
+      _ <- U.apply(bound, 20, xs._21, version)
+    } yield bound
   }
 
-  implicit def tuple22Binder[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, OL <: HList](
+  implicit def bindTuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
     implicit
-    mapperAux: Mapper.Aux[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V), scalaToJava.type, OL],
-    toTraversableAux: ToTraversable.Aux[OL, List, Object]
+    A: RowSerializer[A],
+    B: RowSerializer[B],
+    C: RowSerializer[C],
+    D: RowSerializer[D],
+    E: RowSerializer[E],
+    F: RowSerializer[F],
+    G: RowSerializer[G],
+    H: RowSerializer[H],
+    I: RowSerializer[I],
+    J: RowSerializer[J],
+    K: RowSerializer[K],
+    L: RowSerializer[L],
+    M: RowSerializer[M],
+    N: RowSerializer[N],
+    O: RowSerializer[O],
+    P: RowSerializer[P],
+    Q: RowSerializer[Q],
+    R: RowSerializer[R],
+    S: RowSerializer[S],
+    T: RowSerializer[T],
+    U: RowSerializer[U],
+    V: RowSerializer[V]
   ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] {
-    def apply(pstmt: PreparedStatement, a: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)) =
-      pstmt.bind(a.map(scalaToJava).toList[Object]: _*)
+    override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)): Result[BoundStatement] = for {
+      _ <- A.apply(bound, 0, xs._1, version)
+      _ <- B.apply(bound, 1, xs._2, version)
+      _ <- C.apply(bound, 2, xs._3, version)
+      _ <- D.apply(bound, 3, xs._4, version)
+      _ <- E.apply(bound, 4, xs._5, version)
+      _ <- F.apply(bound, 5, xs._6, version)
+      _ <- G.apply(bound, 6, xs._7, version)
+      _ <- H.apply(bound, 7, xs._8, version)
+      _ <- I.apply(bound, 8, xs._9, version)
+      _ <- J.apply(bound, 9, xs._10, version)
+      _ <- K.apply(bound, 10, xs._11, version)
+      _ <- L.apply(bound, 11, xs._12, version)
+      _ <- M.apply(bound, 12, xs._13, version)
+      _ <- N.apply(bound, 13, xs._14, version)
+      _ <- O.apply(bound, 14, xs._15, version)
+      _ <- P.apply(bound, 15, xs._16, version)
+      _ <- Q.apply(bound, 16, xs._17, version)
+      _ <- R.apply(bound, 17, xs._18, version)
+      _ <- S.apply(bound, 18, xs._19, version)
+      _ <- T.apply(bound, 19, xs._20, version)
+      _ <- U.apply(bound, 20, xs._21, version)
+      _ <- V.apply(bound, 21, xs._22, version)
+    } yield bound
   }
 }

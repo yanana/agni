@@ -1,6 +1,7 @@
-import java.util.UUID
-import java.util.concurrent.Executors
+import java.time.{ LocalDate, ZoneId }
+import java.util.{ Date, UUID }
 
+import agni.cache.default._
 import agni.twitter.util.Future
 import cats.instances.list._
 import cats.syntax.applicativeError._
@@ -12,29 +13,49 @@ import com.twitter.util.{ Await, Try }
 import io.catbird.util._
 import org.scalatest.Matchers
 
-import agni.cache.default._
 object F extends Future
 
-// Usage: sbt "examples/runMain Main 127.0.0.1 9042"
+// Usage: sbt "examples/runMain Main HOST PORT PROTOCOL_VERSION"
+// Example: sbt "examples/runMain Main 127.0.0.1 9042 4"
 object Main extends App with Matchers {
 
-  implicit val executor = Executors.newWorkStealingPool()
-
-  case class User(
+  case class Author(
     id: UUID,
     first_name: String,
     last_name: String,
-    birth: LocalDate,
+    birth: Date,
     gender: String,
-    works: List[String]
+    works: Map[String, Int]
   )
 
-  implicit def tuple3to(a: (Int, Int, Int)): LocalDate = (LocalDate.fromYearMonthDay _).tupled(a)
+  implicit def tuple3to(a: (Int, Int, Int)): Date = {
+    val local = LocalDate.of(a._1, a._2, a._3)
+    Date.from(local.atStartOfDay(ZoneId.systemDefault()).toInstant)
+  }
 
   val users = List(
-    User(UUID.randomUUID(), "Edna", "O'Brien", (1932, 12, 15), "female", List("The Country Girls", "Girl with Green Eyes", "Girls in Their Married Bliss", "August is a Wicked Month", "Casualties of Peace", "Mother Ireland")),
-    User(UUID.randomUUID(), "Benedict", "Kiely", (1919, 8, 15), "male", List("The Collected Stories of Benedict Kiely", "The Trout in the Turnhole", "A Letter to Peachtree", "The State of Ireland: A Novella and Seventeen Short Stories", "A Cow in the House", "A Ball of Malt and Madame Butterfly", "A Journey to the Seven Streams")),
-    User(UUID.randomUUID(), "Darren", "Shan", (1972, 7, 2), "male", List("Cirque Du Freak", "The Vampire's Assistant", "Tunnels of Blood"))
+    Author(UUID.randomUUID(), "Edna", "O'Brien", (1932, 12, 15), "female", Map(
+      "The Country Girls" -> 1960,
+      "Girl with Green Eyes" -> 1962,
+      "Girls in Their Married Bliss" -> 1964,
+      "August is a Wicked Month" -> 1965,
+      "Casualties of Peace" -> 1966,
+      "Mother Ireland" -> 1976
+    )),
+    Author(UUID.randomUUID(), "Benedict", "Kiely", (1919, 8, 15), "male", Map(
+      "The Collected Stories of Benedict Kiely" -> 2001,
+      "The Trout in the Turnhole" -> 1996,
+      "A Letter to Peachtree" -> 1987,
+      "The State of Ireland: A Novella and Seventeen Short Stories" -> 1981,
+      "A Cow in the House" -> 1978,
+      "A Ball of Malt and Madame Butterfly" -> 1973,
+      "A Journey to the Seven Streams" -> 1963
+    )),
+    Author(UUID.randomUUID(), "Darren", "Shan", (1972, 7, 2), "male", Map(
+      "Cirque Du Freak" -> 2000,
+      "The Vampire's Assistant" -> 2000,
+      "Tunnels of Blood" -> 2000
+    ))
   )
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
@@ -44,18 +65,18 @@ object Main extends App with Matchers {
                    |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
                    |""".stripMargin) >>
       F.get[Unit]("USE agni_test") >>
-      F.get[Unit](s"DROP TABLE IF EXISTS user") >>
-      F.get[Unit](s"""CREATE TABLE user (
+      F.get[Unit](s"DROP TABLE IF EXISTS author") >>
+      F.get[Unit](s"""CREATE TABLE author (
                    |  id uuid PRIMARY KEY,
-                   |  first_name text,
-                   |  last_name text,
-                   |  birth date,
+                   |  first_name ascii,
+                   |  last_name ascii,
+                   |  birth timestamp,
                    |  gender ascii,
-                   |  works list<text>,
+                   |  works map<ascii, int>,
                    |)""".stripMargin)
 
   val insertUserQuery: Insert =
-    Q.insertInto("user")
+    Q.insertInto("author")
       .value("id", Q.bindMarker())
       .value("first_name", Q.bindMarker())
       .value("last_name", Q.bindMarker())
@@ -64,27 +85,33 @@ object Main extends App with Matchers {
       .value("works", Q.bindMarker())
 
   val selectUserQuery: Select =
-    Q.select.all.from("user")
+    Q.select.all.from("author")
 
-  def insertUser(p: PreparedStatement, a: User): F.Action[Unit] =
-    F.bind(p, a) >>= (b => F.getAsync[Unit](b))
+  def insertUser(p: PreparedStatement, a: Author): F.Action[Unit] =
+    F.bind(p, a) >>= (b => F.get[Unit](b))
 
-  val action: F.Action[List[User]] =
+  val action: F.Action[List[Author]] =
     remake >>
-      (F.prepare(insertUserQuery) >>= (p => users.traverse(insertUser(p, _)))) >>
-      F.get[List[User]](selectUserQuery)
+      (F.prepare(insertUserQuery) >>=
+        (p => users.traverse(insertUser(p, _)))) >>
+        F.get[List[Author]](selectUserQuery)
 
   val cluster = Cluster.builder()
     .addContactPoint(args(0))
     .withPort(args(1).toInt)
+    .withProtocolVersion(ProtocolVersion.fromInt(args(2).toInt))
     .build()
 
-  implicit val uuidOrd: Ordering[User] = (x: User, y: User) => x.id.compareTo(y.id)
+  implicit val authorOrdering: Ordering[Author] =
+    (x: Author, y: Author) => x.id.compareTo(y.id)
 
   Try(cluster.connect()) map { session =>
-    val Right(xs) = Await.result(action.run(session).attempt)
-    assert(users.sorted === xs.sorted)
-    xs foreach println
+    Await.result(action.run(session).attempt) match {
+      case Left(e) => throw e
+      case Right(xs) =>
+        assert(users.sorted === xs.sorted)
+        xs foreach println
+    }
   } handle {
     case e: Throwable =>
       e.printStackTrace()

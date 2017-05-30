@@ -14,17 +14,11 @@ import io.catbird.util._
 abstract class Future(implicit _cache: Cache[String, PreparedStatement])
     extends Agni[TFuture, Throwable] with CachedPreparedStatementWithGuava {
 
-  override val F: MonadError[TFuture, Throwable] = twitterFutureInstance
+  override implicit val F: MonadError[TFuture, Throwable] = twitterFutureInstance
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
   type P[A] = Promise[Iterator[Result[A]]]
-
-  @Deprecated
-  def executeAsync[A: RowDecoder](query: Statement)(implicit ex: Executor): Action[Iterator[Result[A]]] =
-    withSession(_.executeAsync(query).callback[P, A](
-      Promise(), _.setException(_), _.setValue(_)
-    ))
 
   def getAsync[A](stmt: Statement)(implicit ex: Executor, A: Get[A]): Action[A] =
     withSession { s =>
@@ -34,7 +28,7 @@ abstract class Future(implicit _cache: Cache[String, PreparedStatement])
         def onFailure(t: Throwable): Unit =
           p.setException(t)
         def onSuccess(result: ResultSet): Unit =
-          p.become(A.apply[TFuture, Throwable](result))
+          p.become(A.apply[TFuture, Throwable](result, ver(s)))
       }, ex)
       p
     }
