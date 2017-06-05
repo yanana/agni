@@ -113,7 +113,8 @@ object Deserializer {
   ): Deserializer[M[K, V]] = new Deserializer[M[K, V]] {
     override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[M[K, V]] = {
       val builder = cbf.apply
-      if (!raw.hasRemaining) builder.result().asRight[Throwable]
+      if (raw == null || !raw.hasRemaining)
+        builder.result().asRight[Throwable]
       else {
         @tailrec def go(size: Int, input: ByteBuffer, acc: mutable.Builder[(K, V), M[K, V]]): Result[M[K, V]] =
           size match {
@@ -145,7 +146,8 @@ object Deserializer {
     new Deserializer[C[A]] {
       override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[C[A]] = {
         val builder = cbf.apply()
-        if (!raw.hasRemaining) builder.result().asRight
+        if (raw == null || !raw.hasRemaining)
+          builder.result().asRight
         else {
           @tailrec def go(size: Int, input: ByteBuffer, acc: mutable.Builder[A, C[A]]): Result[C[A]] =
             size match {
