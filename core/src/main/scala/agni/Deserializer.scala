@@ -13,13 +13,32 @@ import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
-trait Deserializer[T] {
-  def apply(raw: ByteBuffer, version: ProtocolVersion): Result[T]
+trait Deserializer[A] { self =>
+
+  def apply(raw: ByteBuffer, version: ProtocolVersion): Result[A]
+
+  def map[B](f: A => B): Deserializer[B] = new Deserializer[B] {
+    override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[B] =
+      self.apply(raw, version).map(f)
+  }
+
+  def flatMap[B](f: A => Deserializer[B]): Deserializer[B] = new Deserializer[B] {
+    override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[B] =
+      self.apply(raw, version).flatMap(f(_)(raw, version))
+  }
 }
 
 object Deserializer {
 
-  def apply[T](implicit T: Deserializer[T]): Deserializer[T] = T
+  def apply[A](implicit A: Deserializer[A]): Deserializer[A] = A
+
+  def const[A](b: A): Deserializer[A] = new Deserializer[A] {
+    override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[A] = Right(b)
+  }
+
+  def failed[A](ex: Throwable): Deserializer[A] = new Deserializer[A] {
+    override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[A] = Left(ex)
+  }
 
   implicit def option[A](implicit A: Deserializer[A]): Deserializer[Option[A]] = new Deserializer[Option[A]] {
     override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[Option[A]] =
@@ -101,9 +120,9 @@ object Deserializer {
       Either.catchNonFatal(TypeCodec.duration().deserialize(raw, version))
   }
 
-  // TODO: deserializa timeUUID
-  // TODO: deserializa counter
-  // TODO: deserializa varchar
+  // TODO: deserializer timeUUID
+  // TODO: deserializer counter
+  // TODO: deserializer varchar
 
   implicit def map[M[K, +V] <: Map[K, V], K, V](
     implicit
