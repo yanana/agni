@@ -13,13 +13,19 @@ import scala.annotation.tailrec
 import scala.collection.generic.IsTraversableOnce
 import scala.collection.mutable
 
-trait Serializer[T] {
-  def apply(value: T, version: ProtocolVersion): Result[ByteBuffer]
+trait Serializer[A] { self =>
+
+  def apply(value: A, version: ProtocolVersion): Result[ByteBuffer]
+
+  def contramap[B](f: B => A): Serializer[B] = new Serializer[B] {
+    override def apply(value: B, version: ProtocolVersion): Result[ByteBuffer] =
+      self.apply(f(value), version)
+  }
 }
 
 object Serializer {
 
-  def apply[T](implicit T: Serializer[T]): Serializer[T] = T
+  def apply[A](implicit A: Serializer[A]): Serializer[A] = A
 
   implicit def option[A](implicit A: Serializer[A]): Serializer[Option[A]] = new Serializer[Option[A]] {
     override def apply(value: Option[A], version: ProtocolVersion): Result[ByteBuffer] =

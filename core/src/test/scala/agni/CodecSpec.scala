@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets._
 import java.time.Instant
 import java.util.{ Date, UUID }
 
+import cats.syntax.either._
 import com.datastax.driver.core.{ Duration, LocalDate, ProtocolVersion }
 import org.scalacheck.{ Arbitrary, Gen, Prop, Shrink }
 import org.scalatest.{ Assertion, FunSuite }
