@@ -14,8 +14,8 @@ lazy val allSettings = Seq.concat(
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.12.2",
-  crossScalaVersions := Seq("2.11.11", "2.12.2")
+  scalaVersion := "2.12.3",
+  crossScalaVersions := Seq("2.11.11", "2.12.3")
 )
 
 val datastaxVersion = "3.3.0"
@@ -149,8 +149,8 @@ lazy val benchmarks = project.in(file("benchmarks"))
     description := "agni benchmarks",
     moduleName := "agni-benchmarks",
     name := "benchmarks",
-    scalaVersion := "2.12.2",
-    crossScalaVersions := Seq("2.12.2"),
+    scalaVersion := "2.12.3",
+    crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
       "io.monix" %% "monix-eval" % monixVersion,
@@ -170,8 +170,8 @@ lazy val examples = project.in(file("examples"))
     description := "agni examples",
     moduleName := "agni-examples",
     name := "examples",
-    scalaVersion := "2.12.2",
-    crossScalaVersions := Seq("2.12.1"),
+    scalaVersion := "2.12.3",
+    crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-simple" % "1.7.13",
       "org.scalatest" %% "scalatest" % scalatestVersion
