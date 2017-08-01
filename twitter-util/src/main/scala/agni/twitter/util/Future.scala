@@ -12,7 +12,7 @@ import com.twitter.util.{ Promise, Future => TFuture }
 import io.catbird.util._
 
 abstract class Future(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[TFuture, Throwable] with CachedPreparedStatementWithGuava {
+  extends Agni[TFuture, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[TFuture, Throwable] = twitterFutureInstance
 

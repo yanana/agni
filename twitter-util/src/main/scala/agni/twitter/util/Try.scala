@@ -9,7 +9,7 @@ import com.twitter.util.{ Try => TTry }
 import io.catbird.util._
 
 abstract class Try(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[TTry, Throwable] with CachedPreparedStatementWithGuava {
+  extends Agni[TTry, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[TTry, Throwable] = twitterTryInstance
 

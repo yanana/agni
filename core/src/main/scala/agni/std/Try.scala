@@ -10,7 +10,7 @@ import com.google.common.cache.Cache
 import scala.util.{ Try => STry }
 
 abstract class Try(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[STry, Throwable] with CachedPreparedStatementWithGuava {
+  extends Agni[STry, Throwable] with CachedPreparedStatementWithGuava {
 
   override val F: MonadError[STry, Throwable] = catsStdInstancesForTry
 
