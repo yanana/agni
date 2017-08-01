@@ -30,8 +30,7 @@ object RowDecoder extends LowPriorityRowDecoder with TupleRowDecoder {
     implicit
     K: Witness.Aux[K],
     H: Lazy[RowDeserializer[H]],
-    T: Lazy[RowDecoder[T]]
-  ): RowDecoder[FieldType[K, H] :: T] =
+    T: Lazy[RowDecoder[T]]): RowDecoder[FieldType[K, H] :: T] =
     new RowDecoder[FieldType[K, H] :: T] {
       def apply(row: Row, version: ProtocolVersion): Result[FieldType[K, H] :: T] = for {
         h <- H.value.apply(row, K.value.name, version)
@@ -41,8 +40,7 @@ object RowDecoder extends LowPriorityRowDecoder with TupleRowDecoder {
 
   implicit def decodeSingleColumn[A](
     implicit
-    A: RowDeserializer[A]
-  ): RowDecoder[A] = new RowDecoder[A] {
+    A: RowDeserializer[A]): RowDecoder[A] = new RowDecoder[A] {
     def apply(row: Row, version: ProtocolVersion): Result[A] =
       A.apply(row, 0, version)
   }
@@ -53,8 +51,7 @@ trait LowPriorityRowDecoder {
   implicit def decodeCaseClass[A, R <: HList](
     implicit
     gen: LabelledGeneric.Aux[A, R],
-    decode: Lazy[RowDecoder[R]]
-  ): RowDecoder[A] =
+    decode: Lazy[RowDecoder[R]]): RowDecoder[A] =
     new RowDecoder[A] {
       def apply(s: Row, version: ProtocolVersion): Result[A] = decode.value(s, version) map (gen from)
     }
@@ -65,8 +62,7 @@ trait TupleRowDecoder {
   implicit def tuple2RowDecoder[A, B](
     implicit
     A: RowDeserializer[A],
-    B: RowDeserializer[B]
-  ): RowDecoder[(A, B)] =
+    B: RowDeserializer[B]): RowDecoder[(A, B)] =
     new RowDecoder[(A, B)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version)).tupled
@@ -76,8 +72,7 @@ trait TupleRowDecoder {
     implicit
     A: RowDeserializer[A],
     B: RowDeserializer[B],
-    C: RowDeserializer[C]
-  ): RowDecoder[(A, B, C)] =
+    C: RowDeserializer[C]): RowDecoder[(A, B, C)] =
     new RowDecoder[(A, B, C)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version)).tupled
@@ -88,8 +83,7 @@ trait TupleRowDecoder {
     A: RowDeserializer[A],
     B: RowDeserializer[B],
     C: RowDeserializer[C],
-    D: RowDeserializer[D]
-  ): RowDecoder[(A, B, C, D)] =
+    D: RowDeserializer[D]): RowDecoder[(A, B, C, D)] =
     new RowDecoder[(A, B, C, D)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version)).tupled
@@ -101,8 +95,7 @@ trait TupleRowDecoder {
     B: RowDeserializer[B],
     C: RowDeserializer[C],
     D: RowDeserializer[D],
-    E: RowDeserializer[E]
-  ): RowDecoder[(A, B, C, D, E)] =
+    E: RowDeserializer[E]): RowDecoder[(A, B, C, D, E)] =
     new RowDecoder[(A, B, C, D, E)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version)).tupled
@@ -115,8 +108,7 @@ trait TupleRowDecoder {
     C: RowDeserializer[C],
     D: RowDeserializer[D],
     E: RowDeserializer[E],
-    F: RowDeserializer[F]
-  ): RowDecoder[(A, B, C, D, E, F)] =
+    F: RowDeserializer[F]): RowDecoder[(A, B, C, D, E, F)] =
     new RowDecoder[(A, B, C, D, E, F)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version)).tupled
@@ -130,8 +122,7 @@ trait TupleRowDecoder {
     D: RowDeserializer[D],
     E: RowDeserializer[E],
     F: RowDeserializer[F],
-    G: RowDeserializer[G]
-  ): RowDecoder[(A, B, C, D, E, F, G)] =
+    G: RowDeserializer[G]): RowDecoder[(A, B, C, D, E, F, G)] =
     new RowDecoder[(A, B, C, D, E, F, G)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version)).tupled
@@ -146,8 +137,7 @@ trait TupleRowDecoder {
     E: RowDeserializer[E],
     F: RowDeserializer[F],
     G: RowDeserializer[G],
-    H: RowDeserializer[H]
-  ): RowDecoder[(A, B, C, D, E, F, G, H)] =
+    H: RowDeserializer[H]): RowDecoder[(A, B, C, D, E, F, G, H)] =
     new RowDecoder[(A, B, C, D, E, F, G, H)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version)).tupled
@@ -163,8 +153,7 @@ trait TupleRowDecoder {
     F: RowDeserializer[F],
     G: RowDeserializer[G],
     H: RowDeserializer[H],
-    I: RowDeserializer[I]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I)] =
+    I: RowDeserializer[I]): RowDecoder[(A, B, C, D, E, F, G, H, I)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version)).tupled
@@ -181,8 +170,7 @@ trait TupleRowDecoder {
     G: RowDeserializer[G],
     H: RowDeserializer[H],
     I: RowDeserializer[I],
-    J: RowDeserializer[J]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J)] =
+    J: RowDeserializer[J]): RowDecoder[(A, B, C, D, E, F, G, H, I, J)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version)).tupled
@@ -200,8 +188,7 @@ trait TupleRowDecoder {
     H: RowDeserializer[H],
     I: RowDeserializer[I],
     J: RowDeserializer[J],
-    K: RowDeserializer[K]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K)] =
+    K: RowDeserializer[K]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version)).tupled
@@ -220,8 +207,7 @@ trait TupleRowDecoder {
     I: RowDeserializer[I],
     J: RowDeserializer[J],
     K: RowDeserializer[K],
-    L: RowDeserializer[L]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L)] =
+    L: RowDeserializer[L]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version)).tupled
@@ -241,8 +227,7 @@ trait TupleRowDecoder {
     J: RowDeserializer[J],
     K: RowDeserializer[K],
     L: RowDeserializer[L],
-    M: RowDeserializer[M]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] = new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] {
+    M: RowDeserializer[M]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] = new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] {
     def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M)] =
       (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version)).tupled
   }
@@ -262,8 +247,7 @@ trait TupleRowDecoder {
     K: RowDeserializer[K],
     L: RowDeserializer[L],
     M: RowDeserializer[M],
-    N: RowDeserializer[N]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] = new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] {
+    N: RowDeserializer[N]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] = new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] {
     def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] =
       (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version)).tupled
   }
@@ -284,8 +268,7 @@ trait TupleRowDecoder {
     L: RowDeserializer[L],
     M: RowDeserializer[M],
     N: RowDeserializer[N],
-    O: RowDeserializer[O]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
+    O: RowDeserializer[O]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version)).tupled
@@ -308,8 +291,7 @@ trait TupleRowDecoder {
     M: RowDeserializer[M],
     N: RowDeserializer[N],
     O: RowDeserializer[O],
-    P: RowDeserializer[P]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
+    P: RowDeserializer[P]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version)).tupled
@@ -333,8 +315,7 @@ trait TupleRowDecoder {
     N: RowDeserializer[N],
     O: RowDeserializer[O],
     P: RowDeserializer[P],
-    Q: RowDeserializer[Q]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
+    Q: RowDeserializer[Q]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version)).tupled
@@ -359,8 +340,7 @@ trait TupleRowDecoder {
     O: RowDeserializer[O],
     P: RowDeserializer[P],
     Q: RowDeserializer[Q],
-    R: RowDeserializer[R]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
+    R: RowDeserializer[R]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version) |@| R.apply(row, 17, version)).tupled
@@ -386,8 +366,7 @@ trait TupleRowDecoder {
     P: RowDeserializer[P],
     Q: RowDeserializer[Q],
     R: RowDeserializer[R],
-    S: RowDeserializer[S]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
+    S: RowDeserializer[S]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version) |@| R.apply(row, 17, version) |@| S.apply(row, 18, version)).tupled
@@ -414,8 +393,7 @@ trait TupleRowDecoder {
     Q: RowDeserializer[Q],
     R: RowDeserializer[R],
     S: RowDeserializer[S],
-    T: RowDeserializer[T]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
+    T: RowDeserializer[T]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version) |@| R.apply(row, 17, version) |@| S.apply(row, 18, version) |@| T.apply(row, 19, version)).tupled
@@ -443,8 +421,7 @@ trait TupleRowDecoder {
     R: RowDeserializer[R],
     S: RowDeserializer[S],
     T: RowDeserializer[T],
-    U: RowDeserializer[U]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
+    U: RowDeserializer[U]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version) |@| R.apply(row, 17, version) |@| S.apply(row, 18, version) |@| T.apply(row, 19, version) |@| U.apply(row, 20, version)).tupled
@@ -473,8 +450,7 @@ trait TupleRowDecoder {
     S: RowDeserializer[S],
     T: RowDeserializer[T],
     U: RowDeserializer[U],
-    V: RowDeserializer[V]
-  ): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
+    V: RowDeserializer[V]): RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
     new RowDecoder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] {
       def apply(row: Row, version: ProtocolVersion): Result[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
         (A.apply(row, 0, version) |@| B.apply(row, 1, version) |@| C.apply(row, 2, version) |@| D.apply(row, 3, version) |@| E.apply(row, 4, version) |@| F.apply(row, 5, version) |@| G.apply(row, 6, version) |@| H.apply(row, 7, version) |@| I.apply(row, 8, version) |@| J.apply(row, 9, version) |@| K.apply(row, 10, version) |@| L.apply(row, 11, version) |@| M.apply(row, 12, version) |@| N.apply(row, 13, version) |@| O.apply(row, 14, version) |@| P.apply(row, 15, version) |@| Q.apply(row, 16, version) |@| R.apply(row, 17, version) |@| S.apply(row, 18, version) |@| T.apply(row, 19, version) |@| U.apply(row, 20, version) |@| V.apply(row, 21, version)).tupled

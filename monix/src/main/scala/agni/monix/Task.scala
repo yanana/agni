@@ -13,23 +13,27 @@ import _root_.monix.execution._
 import _root_.monix.eval.{ Coeval, Task => MTask }
 
 abstract class Task(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[MTask, Throwable] with CachedPreparedStatementWithGuava {
+  extends Agni[MTask, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[MTask, Throwable] = cats.taskToMonadError
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A](stmt: Statement)(implicit ex: Executor, A: Get[A]): Action[A] =
+  def getAsync[A](stmt: Statement)(implicit A: Get[A]): Action[A] =
     withSession { session =>
-      MTask.async { (_, cb) =>
-        val f = session.executeAsync(stmt)
-        Futures.addCallback(f, new FutureCallback[ResultSet] {
-          def onFailure(t: Throwable): Unit =
-            cb.onError(t)
+      MTask.async { (s, cb) =>
+        Futures.addCallback(
+          session.executeAsync(stmt),
+          new FutureCallback[ResultSet] {
+            def onFailure(t: Throwable): Unit =
+              cb.onError(t)
 
-          def onSuccess(result: ResultSet): Unit =
-            cb(A.apply[Coeval, Throwable](result, ver(session)))
-        }, ex)
+            def onSuccess(result: ResultSet): Unit =
+              cb(A.apply[Coeval, Throwable](result, ver(session)))
+          },
+          new Executor {
+            override def execute(command: Runnable): Unit = s.execute(command)
+          })
         Cancelable()
       }
     }

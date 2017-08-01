@@ -128,8 +128,7 @@ object Deserializer {
     implicit
     K: Deserializer[K],
     V: Deserializer[V],
-    cbf: CanBuildFrom[Nothing, (K, V), M[K, V]]
-  ): Deserializer[M[K, V]] = new Deserializer[M[K, V]] {
+    cbf: CanBuildFrom[Nothing, (K, V), M[K, V]]): Deserializer[M[K, V]] = new Deserializer[M[K, V]] {
     override def apply(raw: ByteBuffer, version: ProtocolVersion): Result[M[K, V]] = {
       val builder = cbf.apply
       if (raw == null || !raw.hasRemaining)

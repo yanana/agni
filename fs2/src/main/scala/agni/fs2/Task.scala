@@ -15,7 +15,7 @@ import _root_.fs2.{ Strategy, Task => FTask }
 import scala.util.Try
 
 abstract class Task(implicit _cache: Cache[String, PreparedStatement])
-    extends Agni[FTask, Throwable] with CachedPreparedStatementWithGuava {
+  extends Agni[FTask, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[FTask, Throwable] =
     _root_.fs2.interop.cats.effectToMonadError
@@ -25,8 +25,7 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
   def getAsync[A: Get](stmt: Statement)(
     implicit
     strategy: Strategy,
-    ex: Executor
-  ): Action[A] =
+    ex: Executor): Action[A] =
     withSession { s =>
       FTask.async { cb =>
         val f = s.executeAsync(stmt)

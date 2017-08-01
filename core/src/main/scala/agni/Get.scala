@@ -13,8 +13,7 @@ trait Get[A] {
   def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
     implicit
     F: MonadError[F, E],
-    ev: Throwable <:< E
-  ): F[A]
+    ev: Throwable <:< E): F[A]
 }
 
 object Get {
@@ -25,16 +24,14 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
-    ): F[Unit] = F.pure(())
+      ev: <:<[Throwable, E]): F[Unit] = F.pure(())
   }
 
   implicit def getOneUnsafe[A](implicit A: RowDecoder[A]): Get[A] = new Get[A] {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
-    ): F[A] =
+      ev: <:<[Throwable, E]): F[A] =
       F.catchNonFatal(A(result.one, version).fold(throw _, identity))
   }
 
@@ -42,8 +39,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
-    ): F[Option[A]] = {
+      ev: <:<[Throwable, E]): F[Option[A]] = {
       val row = result.one
       if (row == null) F.pure(none)
       else A(row, version).fold(F.raiseError(_), a => F.pure(a.some))
@@ -53,13 +49,11 @@ object Get {
   implicit def getCBF[A: RowDecoder, C[_]](
     implicit
     A: RowDecoder[A],
-    cbf: CanBuildFrom[Nothing, A, C[A]]
-  ): Get[C[A]] = new Get[C[A]] {
+    cbf: CanBuildFrom[Nothing, A, C[A]]): Get[C[A]] = new Get[C[A]] {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
-    ): F[C[A]] = {
+      ev: <:<[Throwable, E]): F[C[A]] = {
       val f = Foldable.iteratorFoldM[F, Row, mutable.Builder[A, C[A]]](result.iterator.asScala, cbf.apply) {
         case (b, a) => A(a, version).fold(F.raiseError(_), a => { b += a; F.pure(b) })
       }
@@ -71,8 +65,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: Throwable <:< E
-    ): F[Iterator[Row]] =
+      ev: Throwable <:< E): F[Iterator[Row]] =
       F.catchNonFatal(result.iterator.asScala)
   }
 
@@ -80,8 +73,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: Throwable <:< E
-    ): F[java.util.stream.Stream[Row]] =
+      ev: Throwable <:< E): F[java.util.stream.Stream[Row]] =
       F.catchNonFatal(java.util.stream.StreamSupport.stream(result.spliterator(), false))
   }
 }

@@ -21,8 +21,7 @@ object Binder extends LowPriorityBinder with TupleBind {
     implicit
     K: Witness.Aux[K],
     H: Lazy[RowSerializer[H]],
-    T: Lazy[Binder[T]]
-  ): Binder[FieldType[K, H] :: T] =
+    T: Lazy[Binder[T]]): Binder[FieldType[K, H] :: T] =
     new Binder[FieldType[K, H] :: T] {
       override def apply(bound: BoundStatement, version: ProtocolVersion, xs: FieldType[K, H] :: T): Result[BoundStatement] =
         xs match {
@@ -44,8 +43,7 @@ trait LowPriorityBinder {
   implicit def bindCaseClass[A, R <: HList](
     implicit
     gen: LabelledGeneric.Aux[A, R],
-    bind: Lazy[Binder[R]]
-  ): Binder[A] =
+    bind: Lazy[Binder[R]]): Binder[A] =
     new Binder[A] {
       override def apply(bound: BoundStatement, version: ProtocolVersion, a: A): Result[BoundStatement] =
         bind.value.apply(bound, version, gen.to(a))
@@ -58,8 +56,7 @@ trait TupleBind {
   implicit def bindTuple2[A, B](
     implicit
     A: RowSerializer[A],
-    B: RowSerializer[B]
-  ) = new Binder[(A, B)] {
+    B: RowSerializer[B]) = new Binder[(A, B)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -70,8 +67,7 @@ trait TupleBind {
     implicit
     A: RowSerializer[A],
     B: RowSerializer[B],
-    C: RowSerializer[C]
-  ) = new Binder[(A, B, C)] {
+    C: RowSerializer[C]) = new Binder[(A, B, C)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -83,8 +79,7 @@ trait TupleBind {
     A: RowSerializer[A],
     B: RowSerializer[B],
     C: RowSerializer[C],
-    D: RowSerializer[D]
-  ) = new Binder[(A, B, C, D)] {
+    D: RowSerializer[D]) = new Binder[(A, B, C, D)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -98,8 +93,7 @@ trait TupleBind {
     B: RowSerializer[B],
     C: RowSerializer[C],
     D: RowSerializer[D],
-    E: RowSerializer[E]
-  ) = new Binder[(A, B, C, D, E)] {
+    E: RowSerializer[E]) = new Binder[(A, B, C, D, E)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -115,8 +109,7 @@ trait TupleBind {
     C: RowSerializer[C],
     D: RowSerializer[D],
     E: RowSerializer[E],
-    F: RowSerializer[F]
-  ) = new Binder[(A, B, C, D, E, F)] {
+    F: RowSerializer[F]) = new Binder[(A, B, C, D, E, F)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -134,8 +127,7 @@ trait TupleBind {
     D: RowSerializer[D],
     E: RowSerializer[E],
     F: RowSerializer[F],
-    G: RowSerializer[G]
-  ) = new Binder[(A, B, C, D, E, F, G)] {
+    G: RowSerializer[G]) = new Binder[(A, B, C, D, E, F, G)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -155,8 +147,7 @@ trait TupleBind {
     E: RowSerializer[E],
     F: RowSerializer[F],
     G: RowSerializer[G],
-    H: RowSerializer[H]
-  ) = new Binder[(A, B, C, D, E, F, G, H)] {
+    H: RowSerializer[H]) = new Binder[(A, B, C, D, E, F, G, H)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -178,8 +169,7 @@ trait TupleBind {
     F: RowSerializer[F],
     G: RowSerializer[G],
     H: RowSerializer[H],
-    I: RowSerializer[I]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I)] {
+    I: RowSerializer[I]) = new Binder[(A, B, C, D, E, F, G, H, I)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -203,8 +193,7 @@ trait TupleBind {
     G: RowSerializer[G],
     H: RowSerializer[H],
     I: RowSerializer[I],
-    J: RowSerializer[J]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J)] {
+    J: RowSerializer[J]) = new Binder[(A, B, C, D, E, F, G, H, I, J)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -230,8 +219,7 @@ trait TupleBind {
     H: RowSerializer[H],
     I: RowSerializer[I],
     J: RowSerializer[J],
-    K: RowSerializer[K]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K)] {
+    K: RowSerializer[K]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -259,8 +247,7 @@ trait TupleBind {
     I: RowSerializer[I],
     J: RowSerializer[J],
     K: RowSerializer[K],
-    L: RowSerializer[L]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L)] {
+    L: RowSerializer[L]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -290,8 +277,7 @@ trait TupleBind {
     J: RowSerializer[J],
     K: RowSerializer[K],
     L: RowSerializer[L],
-    M: RowSerializer[M]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] {
+    M: RowSerializer[M]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -323,8 +309,7 @@ trait TupleBind {
     K: RowSerializer[K],
     L: RowSerializer[L],
     M: RowSerializer[M],
-    N: RowSerializer[N]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] {
+    N: RowSerializer[N]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -358,8 +343,7 @@ trait TupleBind {
     L: RowSerializer[L],
     M: RowSerializer[M],
     N: RowSerializer[N],
-    O: RowSerializer[O]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] {
+    O: RowSerializer[O]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -395,8 +379,7 @@ trait TupleBind {
     M: RowSerializer[M],
     N: RowSerializer[N],
     O: RowSerializer[O],
-    P: RowSerializer[P]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] {
+    P: RowSerializer[P]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -434,8 +417,7 @@ trait TupleBind {
     N: RowSerializer[N],
     O: RowSerializer[O],
     P: RowSerializer[P],
-    Q: RowSerializer[Q]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] {
+    Q: RowSerializer[Q]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -475,8 +457,7 @@ trait TupleBind {
     O: RowSerializer[O],
     P: RowSerializer[P],
     Q: RowSerializer[Q],
-    R: RowSerializer[R]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] {
+    R: RowSerializer[R]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -518,8 +499,7 @@ trait TupleBind {
     P: RowSerializer[P],
     Q: RowSerializer[Q],
     R: RowSerializer[R],
-    S: RowSerializer[S]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] {
+    S: RowSerializer[S]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -563,8 +543,7 @@ trait TupleBind {
     Q: RowSerializer[Q],
     R: RowSerializer[R],
     S: RowSerializer[S],
-    T: RowSerializer[T]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] {
+    T: RowSerializer[T]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -610,8 +589,7 @@ trait TupleBind {
     R: RowSerializer[R],
     S: RowSerializer[S],
     T: RowSerializer[T],
-    U: RowSerializer[U]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] {
+    U: RowSerializer[U]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
@@ -660,8 +638,7 @@ trait TupleBind {
     S: RowSerializer[S],
     T: RowSerializer[T],
     U: RowSerializer[U],
-    V: RowSerializer[V]
-  ) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] {
+    V: RowSerializer[V]) = new Binder[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] {
     override def apply(bound: BoundStatement, version: ProtocolVersion, xs: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)): Result[BoundStatement] = for {
       _ <- A.apply(bound, 0, xs._1, version)
       _ <- B.apply(bound, 1, xs._2, version)
