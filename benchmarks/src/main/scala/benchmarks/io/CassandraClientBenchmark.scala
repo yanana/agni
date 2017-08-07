@@ -7,7 +7,6 @@ import java.util.concurrent.{ Executor, Executors, TimeUnit }
 
 import agni.{ Result, RowDecoder }
 import cats.instances.try_._
-import cats.instances.future._
 import cats.instances.list._
 import cats.syntax.traverse._
 import cats.syntax.cartesian._
@@ -16,7 +15,7 @@ import com.datastax.driver.core._
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.guava.CaffeinatedGuava
 import com.google.common.cache.Cache
-import com.google.common.util.concurrent.{ FutureCallback, Futures, MoreExecutors }
+import com.google.common.util.concurrent.{ FutureCallback, Futures }
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.duration.Duration
@@ -28,11 +27,6 @@ import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(1)
 abstract class CassandraClientBenchmark {
-
-  implicit val executor: Executor = MoreExecutors.directExecutor()
-
-  implicit val context: ExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
   implicit val cache: Cache[String, PreparedStatement] =
     CaffeinatedGuava.build(Caffeine.newBuilder())
@@ -208,7 +202,7 @@ class AgniBenchmark extends CassandraClientBenchmark {
 @State(Scope.Thread)
 class StdTryBenchmark extends CassandraClientBenchmark {
 
-  @inline def get: ST.Action[Option[User]] = for {
+  @inline final def get: ST.Action[Option[User]] = for {
     p <- ST.prepare(selectUser)
     b <- ST.bind(p, uuid1)
     l <- ST.get[Option[User]](b)
@@ -233,9 +227,14 @@ class StdTryBenchmark extends CassandraClientBenchmark {
 @State(Scope.Thread)
 class StdFutureBenchmark extends CassandraClientBenchmark {
 
+  implicit val context: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
+
   object SF extends agni.std.Future
 
-  @inline def getAsync(uuid: UUID): SF.Action[Option[User]] = for {
+  import SF.F
+
+  @inline final def getAsync(uuid: UUID): SF.Action[Option[User]] = for {
     p <- SF.prepare(selectUser)
     b <- SF.bind(p, uuid)
     l <- SF.getAsync[Option[User]](b)
@@ -252,6 +251,7 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid1)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+
     val f = (fa |@| fb |@| fc).tupled
 
     Await.result(f.run(session), Duration.Inf)
@@ -261,11 +261,14 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
 @State(Scope.Thread)
 class TwitterFutureBenchmark extends CassandraClientBenchmark {
   import com.twitter.util.{ Await => TAwait }
-  import io.catbird.util.twitterFutureInstance
+
+  implicit val executor: Executor = Executors.newWorkStealingPool()
 
   object TF extends agni.twitter.util.Future
 
-  @inline def getAsync(uuid: UUID): TF.Action[Option[User]] = for {
+  import TF.F
+
+  @inline final def getAsync(uuid: UUID): TF.Action[Option[User]] = for {
     p <- TF.prepare(selectUser)
     b <- TF.bind(p, uuid)
     l <- TF.getAsync[Option[User]](b)
@@ -282,6 +285,7 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid1)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+
     val f = (fa |@| fb |@| fc).tupled
 
     TAwait.result(f.run(session))
@@ -290,15 +294,17 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
 
 @State(Scope.Thread)
 class MonixTaskBenchmark extends CassandraClientBenchmark {
-  import agni.monix.cats._
   import monix.execution.Scheduler
   import scala.concurrent.duration._
 
+  implicit val scheduler: Scheduler =
+    Scheduler.computation()
+
   object MF extends agni.monix.Task
 
-  implicit val sche: Scheduler = Scheduler.apply(context)
+  import MF.F
 
-  @inline def getAsync(uuid: UUID): MF.Action[Option[User]] = for {
+  @inline final def getAsync(uuid: UUID): MF.Action[Option[User]] = for {
     p <- MF.prepare(selectUser)
     b <- MF.bind(p, uuid)
     l <- MF.getAsync[Option[User]](b)
@@ -315,6 +321,7 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid1)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+
     val f = (fa |@| fb |@| fc).tupled
 
     Await.result(f.run(session).runAsync, 10.seconds)
@@ -323,15 +330,17 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
 
 @State(Scope.Thread)
 class FS2TaskBenchmark extends CassandraClientBenchmark {
-  import fs2.interop.cats._
   import fs2.Strategy
   import scala.concurrent.duration._
 
+  implicit val strategy: Strategy =
+    Strategy.fromExecutor(Executors.newWorkStealingPool())
+
   object FF extends agni.fs2.Task
 
-  implicit val sche: Strategy = Strategy.fromExecutionContext(context)
+  import FF.F
 
-  @inline def getAsync(uuid: UUID): FF.Action[Option[User]] = for {
+  @inline final def getAsync(uuid: UUID): FF.Action[Option[User]] = for {
     p <- FF.prepare(selectUser)
     b <- FF.bind(p, uuid)
     l <- FF.getAsync[Option[User]](b)
@@ -348,6 +357,7 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
     val fa = getAsync(uuid1)
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
+
     val f = (fa |@| fb |@| fc).tupled
 
     Await.result(f.run(session).unsafeRunAsyncFuture(), 10.seconds)
@@ -357,7 +367,12 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
 @State(Scope.Thread)
 class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
 
-  @inline def getAsync(uuid: UUID): Future[Option[User]] = {
+  implicit val context: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
+
+  import cats.instances.future._
+
+  @inline final def getAsync(uuid: UUID): Future[Option[User]] = {
     val p = cache.get(selectUser.toString, () => session.prepare(selectUser))
     val pp = Promise[Option[User]]
     Futures.addCallback(session.executeAsync(p.bind(uuid)), new FutureCallback[ResultSet] {

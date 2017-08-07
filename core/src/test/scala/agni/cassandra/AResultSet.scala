@@ -2,8 +2,7 @@ package agni.cassandra
 
 import java.util
 
-import com.datastax.driver.core.{ ColumnDefinitions, ExecutionInfo, ResultSet, Row }
-import com.google.common.util.concurrent.ListenableFuture
+import com.datastax.driver.core.Row
 
 import scala.collection.JavaConverters._
 

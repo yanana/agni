@@ -161,6 +161,11 @@ lazy val benchmarks = project.in(file("benchmarks"))
       "co.fs2" %% "fs2-cats" % "0.3.0",
       "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
       "com.github.ben-manes.caffeine" % "guava" % "2.4.0"
+    ),
+    scalacOptions ++= Seq(
+      "-opt:l:inline",
+      "-opt-inline-from:**",
+      "-opt-warnings"
     )
   )
   .enablePlugins(JmhPlugin)
