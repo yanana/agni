@@ -3,6 +3,7 @@ package agni
 import org.scalatest.Assertion
 
 class BinderSpec extends TypedSuite {
+  import TypedSuite._
 
   def checkType[A: Binder]: Assertion = {
     assertCompiles("Binder.apply[A]")

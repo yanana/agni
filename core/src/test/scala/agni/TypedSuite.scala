@@ -11,32 +11,6 @@ import shapeless.record._
 
 trait TypedSuite extends FunSuite with Checkers {
 
-  final case class Named(
-    oint: Option[Int],
-    string: String,
-    int: Int,
-    long: Long,
-    float: Float,
-    double: Double,
-    bigDecimal: BigDecimal,
-    byte: Byte,
-    short: Short,
-    bigInt: BigInt,
-    uuid: UUID,
-    byteBuffer: ByteBuffer,
-    inetAddress: InetAddress,
-    localDate: LocalDate,
-    date: Date,
-    duration: Duration,
-    listInt: List[Int],
-    vectorString: Vector[String],
-    setDouble: Set[Double],
-    streamFloat: Stream[Float],
-    mapIntString: Map[Int, String],
-    tupleValue: TupleValue,
-    udtValue: UDTValue
-  )
-
   type T1 = Option[Int]
   type T2 = (Option[Int], String)
   type T3 = (Option[Int], String, Int)
@@ -62,5 +36,34 @@ trait TypedSuite extends FunSuite with Checkers {
   type T22_2 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String], UDTValue)
 
   type IDV = Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`.T
+
+}
+
+object TypedSuite {
+
+  final case class Named(
+    oint: Option[Int],
+    string: String,
+    int: Int,
+    long: Long,
+    float: Float,
+    double: Double,
+    bigDecimal: BigDecimal,
+    byte: Byte,
+    short: Short,
+    bigInt: BigInt,
+    uuid: UUID,
+    byteBuffer: ByteBuffer,
+    inetAddress: InetAddress,
+    localDate: LocalDate,
+    date: Date,
+    duration: Duration,
+    listInt: List[Int],
+    vectorString: Vector[String],
+    setDouble: Set[Double],
+    streamFloat: Stream[Float],
+    mapIntString: Map[Int, String],
+    tupleValue: TupleValue,
+    udtValue: UDTValue)
 
 }

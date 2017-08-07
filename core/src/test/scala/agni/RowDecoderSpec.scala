@@ -3,6 +3,7 @@ package agni
 import org.scalatest.Assertion
 
 class RowDecoderSpec extends TypedSuite {
+  import TypedSuite._
 
   def checkType[A: RowDecoder]: Assertion = {
     assertCompiles("RowDecoder.apply[A]")
