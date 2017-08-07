@@ -11,8 +11,7 @@ import com.datastax.driver.core._
 import com.google.common.reflect.TypeToken
 
 case class ARow(
-    value: ByteBuffer
-) extends UndefinedRow {
+  value: ByteBuffer) extends UndefinedRow {
   override def getBytesUnsafe(i: Int): ByteBuffer = value
   override def getBytesUnsafe(name: String): ByteBuffer = value
 }
