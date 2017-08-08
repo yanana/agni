@@ -24,15 +24,15 @@ val catsVersion = "0.9.0"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
 val scalatestVersion = "3.0.3"
-val catbirdVersion = "0.13.0"
+val catbirdVersion = "0.15.0"
 val monixVersion = "2.3.0"
-val fs2Version = "0.9.6"
+val fs2Version = "0.9.7"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
   "org.typelevel" %% "cats" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion
-) map (_.withSources)
+)
 
 lazy val testDeps = Seq(
   "org.scalacheck" %% "scalacheck" % scalacheckVersion,
@@ -43,7 +43,7 @@ lazy val baseSettings = Seq(
   scalacOptions ++= compilerOptions,
   scalacOptions in (Compile, console) := compilerOptions,
   scalacOptions in (Compile, test) := compilerOptions,
-  libraryDependencies ++= coreDeps ++ testDeps,
+  libraryDependencies ++= (coreDeps ++ testDeps).map(_.withSources),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -94,20 +94,20 @@ lazy val noPublishSettings = Seq(
 )
 
 lazy val core = project.in(file("core"))
+  .settings(allSettings)
   .settings(
     description := "agni core",
     moduleName := "agni-core",
     name := "core"
   )
-  .settings(allSettings: _*)
 
 lazy val `twitter-util` = project.in(file("twitter-util"))
+  .settings(allSettings)
   .settings(
     description := "agni twitter-util",
     moduleName := "agni-twitter-util",
     name := "twitter-util"
   )
-  .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion
@@ -116,12 +116,12 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
   .dependsOn(core)
 
 lazy val monix = project.in(file("monix"))
+  .settings(allSettings)
   .settings(
     description := "agni monix",
     moduleName := "agni-monix",
     name := "monix"
   )
-  .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
       "io.monix" %% "monix-eval" % monixVersion,
@@ -131,12 +131,12 @@ lazy val monix = project.in(file("monix"))
   .dependsOn(core)
 
 lazy val fs2 = project.in(file("fs2"))
+  .settings(allSettings)
   .settings(
     description := "agni fs2",
     moduleName := "agni-fs2",
     name := "fs2"
   )
-  .settings(allSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
       "co.fs2" %% "fs2-core" % fs2Version,
@@ -146,6 +146,7 @@ lazy val fs2 = project.in(file("fs2"))
   .dependsOn(core)
 
 lazy val benchmarks = project.in(file("benchmarks"))
+  .settings(noPublishSettings)
   .settings(
     description := "agni benchmarks",
     moduleName := "agni-benchmarks",
@@ -163,10 +164,11 @@ lazy val benchmarks = project.in(file("benchmarks"))
     )
   )
   .enablePlugins(JmhPlugin)
-  .settings(noPublishSettings)
   .dependsOn(`twitter-util`, monix, fs2)
 
 lazy val examples = project.in(file("examples"))
+  .settings(allSettings)
+  .settings(noPublishSettings)
   .settings(
     description := "agni examples",
     moduleName := "agni-examples",
@@ -178,8 +180,6 @@ lazy val examples = project.in(file("examples"))
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
-  .settings(allSettings: _*)
-  .settings(noPublishSettings)
   .dependsOn(`twitter-util`)
 
 lazy val compilerOptions = Seq(
