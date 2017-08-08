@@ -20,7 +20,7 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A: Get](stmt: Statement)(implicit strategy: Strategy, ex: Executor): Action[A] =
+  def getAsync[A: Get](stmt: Statement)(implicit strategy: Strategy): Action[A] =
     withSession { s =>
       FTask.async { cb =>
         Futures.addCallback(
@@ -32,7 +32,10 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
             def onSuccess(result: ResultSet): Unit =
               cb(Get[A].apply[Either[Throwable, ?], Throwable](result, ver(s)))
           },
-          ex)
+          new Executor {
+            override def execute(command: Runnable): Unit =
+              strategy(command.run())
+          })
       }
     }
 }
