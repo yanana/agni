@@ -1,5 +1,6 @@
 import java.time.{ LocalDate, ZoneId }
 import java.util.{ Date, UUID }
+import java.util.concurrent.{ Executor, Executors }
 
 import agni.cache.default._
 import agni.twitter.util.Future
@@ -13,11 +14,13 @@ import com.twitter.util.{ Await, Try }
 import io.catbird.util._
 import org.scalatest.Matchers
 
-object F extends Future
-
 // Usage: sbt "examples/runMain Main HOST PORT PROTOCOL_VERSION"
 // Example: sbt "examples/runMain Main 127.0.0.1 9042 4"
 object Main extends App with Matchers {
+
+  implicit val ex: Executor = Executors.newWorkStealingPool
+
+  object F extends Future
 
   case class Author(
     id: UUID,
@@ -25,8 +28,7 @@ object Main extends App with Matchers {
     last_name: String,
     birth: Date,
     gender: String,
-    works: Map[String, Int]
-  )
+    works: Map[String, Int])
 
   implicit def tuple3to(a: (Int, Int, Int)): Date = {
     val local = LocalDate.of(a._1, a._2, a._3)
@@ -40,8 +42,7 @@ object Main extends App with Matchers {
       "Girls in Their Married Bliss" -> 1964,
       "August is a Wicked Month" -> 1965,
       "Casualties of Peace" -> 1966,
-      "Mother Ireland" -> 1976
-    )),
+      "Mother Ireland" -> 1976)),
     Author(UUID.randomUUID(), "Benedict", "Kiely", (1919, 8, 15), "male", Map(
       "The Collected Stories of Benedict Kiely" -> 2001,
       "The Trout in the Turnhole" -> 1996,
@@ -49,14 +50,11 @@ object Main extends App with Matchers {
       "The State of Ireland: A Novella and Seventeen Short Stories" -> 1981,
       "A Cow in the House" -> 1978,
       "A Ball of Malt and Madame Butterfly" -> 1973,
-      "A Journey to the Seven Streams" -> 1963
-    )),
+      "A Journey to the Seven Streams" -> 1963)),
     Author(UUID.randomUUID(), "Darren", "Shan", (1972, 7, 2), "male", Map(
       "Cirque Du Freak" -> 2000,
       "The Vampire's Assistant" -> 2000,
-      "Tunnels of Blood" -> 2000
-    ))
-  )
+      "Tunnels of Blood" -> 2000)))
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 

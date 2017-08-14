@@ -106,9 +106,7 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
   .settings(
     description := "agni twitter-util",
     moduleName := "agni-twitter-util",
-    name := "twitter-util"
-  )
-  .settings(
+    name := "twitter-util",
     libraryDependencies ++= Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion
     )
@@ -120,9 +118,7 @@ lazy val monix = project.in(file("monix"))
   .settings(
     description := "agni monix",
     moduleName := "agni-monix",
-    name := "monix"
-  )
-  .settings(
+    name := "monix",
     libraryDependencies ++= Seq(
       "io.monix" %% "monix-eval" % monixVersion,
       "io.monix" %% "monix-cats" % monixVersion
@@ -135,9 +131,7 @@ lazy val fs2 = project.in(file("fs2"))
   .settings(
     description := "agni fs2",
     moduleName := "agni-fs2",
-    name := "fs2"
-  )
-  .settings(
+    name := "fs2",
     libraryDependencies ++= Seq(
       "co.fs2" %% "fs2-core" % fs2Version,
       "co.fs2" %% "fs2-cats" % "0.3.0"
@@ -146,12 +140,12 @@ lazy val fs2 = project.in(file("fs2"))
   .dependsOn(core)
 
 lazy val benchmarks = project.in(file("benchmarks"))
+  .settings(allSettings)
   .settings(noPublishSettings)
   .settings(
     description := "agni benchmarks",
     moduleName := "agni-benchmarks",
     name := "benchmarks",
-    scalaVersion := "2.12.3",
     crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
@@ -178,7 +172,6 @@ lazy val examples = project.in(file("examples"))
     description := "agni examples",
     moduleName := "agni-examples",
     name := "examples",
-    scalaVersion := "2.12.3",
     crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-simple" % "1.7.13",

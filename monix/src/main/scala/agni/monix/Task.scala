@@ -4,36 +4,30 @@ package monix
 import java.util.concurrent.Executor
 
 import agni.cache.CachedPreparedStatementWithGuava
-import _root_.cats.MonadError
-import com.datastax.driver.core.{ PreparedStatement, ResultSet, Statement }
+import agni.util.Guava
+import com.datastax.driver.core.{ PreparedStatement, Statement }
 import com.google.common.cache.Cache
-import com.google.common.util.concurrent.{ FutureCallback, Futures }
-import _root_.monix.cats._
+import _root_.cats.MonadError
 import _root_.monix.execution._
-import _root_.monix.eval.{ Coeval, Task => MTask }
+import _root_.monix.eval.{ Task => MTask }
 
 abstract class Task(implicit _cache: Cache[String, PreparedStatement])
-  extends Agni[MTask, Throwable] with CachedPreparedStatementWithGuava {
+  extends Async[MTask, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[MTask, Throwable] = cats.taskToMonadError
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A](stmt: Statement)(implicit A: Get[A]): Action[A] =
+  override def getAsync[A: Get](stmt: Statement): Action[A] =
     withSession { session =>
       MTask.async { (s, cb) =>
-        Futures.addCallback(
+        val f = Guava.async[A](
           session.executeAsync(stmt),
-          new FutureCallback[ResultSet] {
-            def onFailure(t: Throwable): Unit =
-              cb.onError(t)
-
-            def onSuccess(result: ResultSet): Unit =
-              cb(A.apply[Coeval, Throwable](result, ver(session)))
-          },
+          _.fold(cb.onError, cb.onSuccess),
           new Executor {
             override def execute(command: Runnable): Unit = s.execute(command)
           })
+        f(ver(session))
         Cancelable()
       }
     }
