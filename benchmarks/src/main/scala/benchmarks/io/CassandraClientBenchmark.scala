@@ -107,7 +107,7 @@ abstract class CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class AgniBenchmark extends CassandraClientBenchmark {
 
   val selectUsers: Select = Q.select("id", "string_column", "map_column", "list_column", "vector_column").from("user")
@@ -199,24 +199,24 @@ class AgniBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class StdTryBenchmark extends CassandraClientBenchmark {
 
-  @inline final def get: ST.Action[Option[User]] = for {
+  @inline final def get(uuid: UUID): ST.Action[Option[User]] = for {
     p <- ST.prepare(selectUser)
-    b <- ST.bind(p, uuid1)
+    b <- ST.bind(p, uuid)
     l <- ST.get[Option[User]](b)
   } yield l
 
   @Benchmark
   def one: Option[User] =
-    get.run(session).get
+    get(uuid1).run(session).get
 
   @Benchmark
   def three: (Option[User], Option[User], Option[User]) = {
-    val fa = get
-    val fb = get
-    val fc = get
+    val fa = get(uuid1)
+    val fb = get(uuid2)
+    val fc = get(uuid3)
 
     val f = (fa |@| fb |@| fc).tupled
 
@@ -224,7 +224,7 @@ class StdTryBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class StdFutureBenchmark extends CassandraClientBenchmark {
 
   implicit val context: ExecutionContext =
@@ -258,7 +258,7 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class TwitterFutureBenchmark extends CassandraClientBenchmark {
   import com.twitter.util.{ Await => TAwait }
 
@@ -292,7 +292,36 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
+class TwitterTryBenchmark extends CassandraClientBenchmark {
+
+  object TT extends agni.twitter.util.Try
+
+  import TT.F
+
+  @inline final def get(uuid: UUID): TT.Action[Option[User]] = for {
+    p <- TT.prepare(selectUser)
+    b <- TT.bind(p, uuid)
+    l <- TT.get[Option[User]](b)
+  } yield l
+
+  @Benchmark
+  def one: Option[User] =
+    get(uuid1).run(session).get
+
+  @Benchmark
+  def three: (Option[User], Option[User], Option[User]) = {
+    val fa = get(uuid1)
+    val fb = get(uuid2)
+    val fc = get(uuid3)
+
+    val f = (fa |@| fb |@| fc).tupled
+
+    f.run(session).get
+  }
+}
+
+@State(Scope.Benchmark)
 class MonixTaskBenchmark extends CassandraClientBenchmark {
   import monix.execution.Scheduler
   import scala.concurrent.duration._
@@ -328,7 +357,7 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class FS2TaskBenchmark extends CassandraClientBenchmark {
   import fs2.Strategy
   import scala.concurrent.duration._
@@ -364,7 +393,7 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
   }
 }
 
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
 
   implicit val context: ExecutionContext =
