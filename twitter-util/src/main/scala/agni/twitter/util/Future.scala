@@ -6,7 +6,7 @@ import java.util.concurrent.Executor
 import agni.cache.CachedPreparedStatementWithGuava
 import agni.util.Guava
 import cats.MonadError
-import com.datastax.driver.core.{ PreparedStatement, Statement }
+import com.datastax.driver.core._
 import com.google.common.cache.Cache
 import com.twitter.util.{ Promise, Future => TFuture }
 import io.catbird.util._
@@ -18,14 +18,13 @@ abstract class Future(implicit ex: Executor, _cache: Cache[String, PreparedState
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A: Get](stmt: Statement): Action[A] =
-    withSession { session =>
-      val p = Promise[A]
-      val f = Guava.async[A](
-        session.executeAsync(stmt),
-        _.fold(p.setException, p.setValue),
-        ex)
-      f(ver(session))
-      p
-    }
+  def getAsync[A: Get](stmt: Statement)(implicit s: Session): TFuture[A] = {
+    val p = Promise[A]
+    val f = Guava.async[A](
+      s.executeAsync(stmt),
+      _.fold(p.setException, p.setValue),
+      ex)
+    f(ver(s))
+    p
+  }
 }
