@@ -4,38 +4,31 @@ package fs2
 import java.util.concurrent.Executor
 
 import agni.cache.CachedPreparedStatementWithGuava
+import agni.util.Guava
 import cats.MonadError
-import cats.instances.either._
-import cats.syntax.either._
-import com.datastax.driver.core.{ PreparedStatement, ResultSet, Statement }
+import com.datastax.driver.core.{ PreparedStatement, Statement }
 import com.google.common.cache.Cache
-import com.google.common.util.concurrent.{ FutureCallback, Futures }
 import _root_.fs2.{ Strategy, Task => FTask }
 
-abstract class Task(implicit _cache: Cache[String, PreparedStatement])
-  extends Agni[FTask, Throwable] with CachedPreparedStatementWithGuava {
+abstract class Task(implicit strategy: Strategy, _cache: Cache[String, PreparedStatement])
+  extends Async[FTask, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[FTask, Throwable] =
     _root_.fs2.interop.cats.effectToMonadError
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A: Get](stmt: Statement)(implicit strategy: Strategy): Action[A] =
-    withSession { s =>
+  override def getAsync[A: Get](stmt: Statement): Action[A] =
+    withSession { session =>
       FTask.async { cb =>
-        Futures.addCallback(
-          s.executeAsync(stmt),
-          new FutureCallback[ResultSet] {
-            def onFailure(t: Throwable): Unit =
-              cb(t.asLeft)
-
-            def onSuccess(result: ResultSet): Unit =
-              cb(Get[A].apply[Either[Throwable, ?], Throwable](result, ver(s)))
-          },
+        val f = Guava.async[A](
+          session.executeAsync(stmt),
+          cb,
           new Executor {
             override def execute(command: Runnable): Unit =
               strategy(command.run())
           })
+        f(ver(session))
       }
     }
 }

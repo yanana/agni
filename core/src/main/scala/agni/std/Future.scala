@@ -4,38 +4,31 @@ package std
 import java.util.concurrent.Executor
 
 import agni.cache.CachedPreparedStatementWithGuava
+import agni.util.Guava
 import cats.MonadError
 import cats.instances.future._
-import com.datastax.driver.core._
+import com.datastax.driver.core.{ PreparedStatement, Statement }
 import com.google.common.cache.Cache
-import com.google.common.util.concurrent.{ FutureCallback, Futures }
 
 import scala.concurrent.{ ExecutionContext, Promise, Future => SFuture }
 
 abstract class Future(implicit ec: ExecutionContext, _cache: Cache[String, PreparedStatement])
-  extends Agni[SFuture, Throwable] with CachedPreparedStatementWithGuava {
+  extends Async[SFuture, Throwable] with CachedPreparedStatementWithGuava {
 
   override implicit val F: MonadError[SFuture, Throwable] = catsStdInstancesForFuture
 
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
-  def getAsync[A: Get](stmt: Statement): Action[A] =
-    withSession { s =>
+  override def getAsync[A: Get](stmt: Statement): Action[A] =
+    withSession { session =>
       val p = Promise[A]
-      Futures.addCallback(
-        s.executeAsync(stmt),
-        new FutureCallback[ResultSet] {
-          def onFailure(t: Throwable): Unit =
-            p.failure(t)
-
-          def onSuccess(result: ResultSet): Unit =
-            p.completeWith(Get[A].apply[SFuture, Throwable](result, ver(s)))
-        },
+      val f = Guava.async[A](
+        session.executeAsync(stmt),
+        _.fold(p.failure, p.success),
         new Executor {
-          override def execute(command: Runnable): Unit =
-            ec.execute(command)
+          override def execute(command: Runnable): Unit = ec.execute(command)
         })
-
+      f(ver(session))
       p.future
     }
 }
