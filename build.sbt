@@ -96,6 +96,9 @@ lazy val noPublishSettings = Seq(
 lazy val core = project.in(file("core"))
   .settings(allSettings)
   .settings(
+    sourceGenerators in Compile += (sourceManaged in Compile).map(Boilerplate.gen).taskValue
+  )
+  .settings(
     description := "agni core",
     moduleName := "agni-core",
     name := "core"
