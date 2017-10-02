@@ -11,6 +11,7 @@ import cats.syntax.traverse._
 import com.datastax.driver.core._
 import com.datastax.driver.core.querybuilder.{ Insert, Select, QueryBuilder => Q }
 import com.twitter.util.{ Await, Try }
+import com.twitter.util.{ Future => TFuture }
 import io.catbird.util._
 import org.scalatest.Matchers
 
@@ -58,7 +59,7 @@ object Main extends App with Matchers {
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
-  val remake: F.Action[Unit] =
+  val remake: TFuture[Unit] =
     F.get[Unit](s"""CREATE KEYSPACE IF NOT EXISTS agni_test
                    |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
                    |""".stripMargin) >>
@@ -85,10 +86,10 @@ object Main extends App with Matchers {
   val selectUserQuery: Select =
     Q.select.all.from("author")
 
-  def insertUser(p: PreparedStatement, a: Author): F.Action[Unit] =
+  def insertUser(p: PreparedStatement, a: Author): TFuture[Unit] =
     F.bind(p, a) >>= (b => F.get[Unit](b))
 
-  val action: F.Action[List[Author]] =
+  val action: TFuture[List[Author]] =
     remake >>
       (F.prepare(insertUserQuery) >>=
         (p => users.traverse(insertUser(p, _)))) >>
@@ -104,7 +105,7 @@ object Main extends App with Matchers {
     (x: Author, y: Author) => x.id.compareTo(y.id)
 
   Try(cluster.connect()) map { session =>
-    Await.result(action.run(session).attempt) match {
+    Await.result(action.attempt) match {
       case Left(e) => throw e
       case Right(xs) =>
         assert(users.sorted === xs.sorted)
