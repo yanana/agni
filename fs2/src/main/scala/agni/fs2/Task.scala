@@ -26,7 +26,8 @@ abstract class Task(implicit strategy: Strategy, _cache: Cache[String, PreparedS
         new Executor {
           override def execute(command: Runnable): Unit =
             strategy(command.run())
-        })
+        }
+      )
       f(ver(s))
     }
 }

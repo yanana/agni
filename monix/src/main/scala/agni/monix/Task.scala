@@ -26,7 +26,8 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
         new Executor {
           override def execute(command: Runnable): Unit =
             scheduler.execute(command)
-        })
+        }
+      )
       f(ver(s))
       Cancelable()
     }

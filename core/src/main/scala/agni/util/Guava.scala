@@ -13,7 +13,8 @@ object Guava {
   def async[A: Get](
     rsf: ResultSetFuture,
     cb: Either[Throwable, A] => Unit,
-    ex: Executor): ProtocolVersion => Unit = pVer =>
+    ex: Executor
+  ): ProtocolVersion => Unit = pVer =>
     Futures.addCallback(
       rsf,
       new FutureCallback[ResultSet] {
@@ -23,5 +24,6 @@ object Guava {
         def onSuccess(result: ResultSet): Unit =
           cb(Get[A].apply[Either[Throwable, ?], Throwable](result, pVer))
       },
-      ex)
+      ex
+    )
 }

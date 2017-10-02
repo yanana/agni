@@ -28,7 +28,8 @@ object RowDecoder extends LowPriorityRowDecoder with TupleRowDecoder {
     implicit
     K: Witness.Aux[K],
     H: Lazy[RowDeserializer[H]],
-    T: Lazy[RowDecoder[T]]): RowDecoder[FieldType[K, H] :: T] =
+    T: Lazy[RowDecoder[T]]
+  ): RowDecoder[FieldType[K, H] :: T] =
     new RowDecoder[FieldType[K, H] :: T] {
       def apply(row: Row, version: ProtocolVersion): Result[FieldType[K, H] :: T] = for {
         h <- H.value.apply(row, K.value.name, version)
@@ -38,7 +39,8 @@ object RowDecoder extends LowPriorityRowDecoder with TupleRowDecoder {
 
   implicit def decodeSingleColumn[A](
     implicit
-    A: RowDeserializer[A]): RowDecoder[A] = new RowDecoder[A] {
+    A: RowDeserializer[A]
+  ): RowDecoder[A] = new RowDecoder[A] {
     def apply(row: Row, version: ProtocolVersion): Result[A] =
       A.apply(row, 0, version)
   }
@@ -49,7 +51,8 @@ trait LowPriorityRowDecoder {
   implicit def decodeCaseClass[A, R <: HList](
     implicit
     gen: LabelledGeneric.Aux[A, R],
-    decode: Lazy[RowDecoder[R]]): RowDecoder[A] =
+    decode: Lazy[RowDecoder[R]]
+  ): RowDecoder[A] =
     new RowDecoder[A] {
       def apply(s: Row, version: ProtocolVersion): Result[A] = decode.value(s, version) map (gen from)
     }

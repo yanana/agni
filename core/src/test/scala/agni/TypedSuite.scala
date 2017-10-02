@@ -64,6 +64,7 @@ object TypedSuite {
     streamFloat: Stream[Float],
     mapIntString: Map[Int, String],
     tupleValue: TupleValue,
-    udtValue: UDTValue)
+    udtValue: UDTValue
+  )
 
 }

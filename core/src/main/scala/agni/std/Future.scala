@@ -26,7 +26,8 @@ abstract class Future(implicit ec: ExecutionContext, _cache: Cache[String, Prepa
       _.fold(p.failure, p.success),
       new Executor {
         override def execute(command: Runnable): Unit = ec.execute(command)
-      })
+      }
+    )
     f(ver(s))
     p.future
   }
