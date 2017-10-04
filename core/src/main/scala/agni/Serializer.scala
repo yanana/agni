@@ -117,7 +117,8 @@ object Serializer {
   implicit def map[M[K, V] <: Map[K, V], K, V](
     implicit
     K: Serializer[K],
-    V: Serializer[V]): Serializer[M[K, V]] = new Serializer[M[K, V]] {
+    V: Serializer[V]
+  ): Serializer[M[K, V]] = new Serializer[M[K, V]] {
     override def apply(value: M[K, V], version: ProtocolVersion): Result[ByteBuffer] = {
       @tailrec def go(m: List[(K, V)], acc: mutable.ArrayBuilder[ByteBuffer]): Result[Array[ByteBuffer]] = m match {
         case Nil => acc.result().asRight
@@ -141,7 +142,8 @@ object Serializer {
   implicit def traversableOnce[A0, C[_]](
     implicit
     A: Serializer[A0],
-    is: IsTraversableOnce[C[A0]] { type A = A0 }): Serializer[C[A0]] =
+    is: IsTraversableOnce[C[A0]] { type A = A0 }
+  ): Serializer[C[A0]] =
     new Serializer[C[A0]] {
       override def apply(value: C[A0], version: ProtocolVersion): Result[ByteBuffer] = {
         if (value == null) Left(new NullPointerException) else {

@@ -21,7 +21,8 @@ object Binder extends LowPriorityBinder with TupleBinder {
     implicit
     K: Witness.Aux[K],
     H: Lazy[RowSerializer[H]],
-    T: Lazy[Binder[T]]): Binder[FieldType[K, H] :: T] =
+    T: Lazy[Binder[T]]
+  ): Binder[FieldType[K, H] :: T] =
     new Binder[FieldType[K, H] :: T] {
       override def apply(bound: BoundStatement, version: ProtocolVersion, xs: FieldType[K, H] :: T): Result[BoundStatement] =
         xs match {
@@ -43,7 +44,8 @@ trait LowPriorityBinder {
   implicit def bindCaseClass[A, R <: HList](
     implicit
     gen: LabelledGeneric.Aux[A, R],
-    bind: Lazy[Binder[R]]): Binder[A] =
+    bind: Lazy[Binder[R]]
+  ): Binder[A] =
     new Binder[A] {
       override def apply(bound: BoundStatement, version: ProtocolVersion, a: A): Result[BoundStatement] =
         bind.value.apply(bound, version, gen.to(a))

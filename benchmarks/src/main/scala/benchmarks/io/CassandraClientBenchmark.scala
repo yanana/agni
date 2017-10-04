@@ -39,7 +39,8 @@ abstract class CassandraClientBenchmark {
     string_column: String,
     map_column: Map[Int, String],
     list_column: List[BigInt],
-    vector_column: Vector[Date])
+    vector_column: Vector[Date]
+  )
 
   type UserTuple = (UUID, String, Map[Int, String], List[BigInt], Vector[Date])
 
@@ -50,7 +51,8 @@ abstract class CassandraClientBenchmark {
   val users: List[User] = List(
     User(uuid1, "a", (1 to 10).map(i => (i, s"$i")).toMap, (1 to 10).map(BigInt.apply).toList, (1 to 10).map(_ => Date.from(Instant.now)).toVector),
     User(uuid2, "b", (1 to 100).map(i => (i, s"$i")).toMap, (1 to 100).map(BigInt.apply).toList, (1 to 100).map(_ => Date.from(Instant.now)).toVector),
-    User(uuid3, "c", (1 to 1000).map(i => (i, s"$i")).toMap, (1 to 1000).map(BigInt.apply).toList, (1 to 1000).map(_ => Date.from(Instant.now)).toVector))
+    User(uuid3, "c", (1 to 1000).map(i => (i, s"$i")).toMap, (1 to 1000).map(BigInt.apply).toList, (1 to 1000).map(_ => Date.from(Instant.now)).toVector)
+  )
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
@@ -119,7 +121,8 @@ class AgniBenchmark extends CassandraClientBenchmark {
       "string_column",
       "map_column",
       "list_column",
-      "vector_column").from("user")
+      "vector_column"
+    ).from("user")
 
   @Benchmark
   def javaStream: java.util.stream.Stream[Row] = {
@@ -427,13 +430,15 @@ class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
               string_column = x.getString("string_column"),
               map_column = x.getMap[Integer, String]("map_column", classOf[Integer], classOf[String]).asScala.toMap.map { case (k, v) => (k: Int, v) },
               list_column = x.getList[BigInteger]("list_column", classOf[BigInteger]).asScala.map(BigInt.apply).toList,
-              vector_column = x.getList[Date]("vector_column", classOf[Date]).asScala.toVector)
+              vector_column = x.getList[Date]("vector_column", classOf[Date]).asScala.toVector
+            )
           })
         }
       },
       new Executor {
         override def execute(command: Runnable): Unit = context.execute(command)
-      })
+      }
+    )
     pp.future
   }
 

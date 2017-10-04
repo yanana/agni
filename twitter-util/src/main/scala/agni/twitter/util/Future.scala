@@ -23,7 +23,8 @@ abstract class Future(implicit ex: Executor, _cache: Cache[String, PreparedState
     val f = Guava.async[A](
       s.executeAsync(stmt),
       _.fold(p.setException, p.setValue),
-      ex)
+      ex
+    )
     f(ver(s))
     p
   }

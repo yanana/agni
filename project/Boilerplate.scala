@@ -28,7 +28,7 @@ object Boilerplate {
   )
 
   /** Returns a seq of the generated files.  As a side-effect, it actually generates them... */
-  def gen(dir : File) = for(t <- templates) yield {
+  def gen(dir: File) = for (t <- templates) yield {
     val tgtFile = t.file(dir)
     IO.write(tgtFile, t.body)
     tgtFile
@@ -38,12 +38,12 @@ object Boilerplate {
   val maxArity = 22
 
   class TemplateVals(val arity: Int) {
-    val synTypes     = (0 until arity) map (n => (n+'A').toChar)
-    val synVals      = (0 until arity) map (n => (n+'a').toChar)
+    val synTypes = (0 until arity) map (n => (n + 'A').toChar)
+    val synVals = (0 until arity) map (n => (n + 'a').toChar)
 
-    val `A..N`       = synTypes.mkString(", ")
-    val `(A..N)`     = if (arity == 1) "Tuple1[A]" else synTypes.mkString("(", ", ", ")")
-    def `a:F[A]..n:F[N]`(f: String) = (synVals zip synTypes) map { case (v,t) => s"$v: $f[$t]" } mkString ", "
+    val `A..N` = synTypes.mkString(", ")
+    val `(A..N)` = if (arity == 1) "Tuple1[A]" else synTypes.mkString("(", ", ", ")")
+    def `a:F[A]..n:F[N]`(f: String) = (synVals zip synTypes) map { case (v, t) => s"$v: $f[$t]" } mkString ", "
   }
 
   trait Template {
@@ -54,12 +54,11 @@ object Boilerplate {
       val headerLines = header split '\n'
       val rawContents = range map { n => content(new TemplateVals(n)) split '\n' filterNot (_.isEmpty) }
       val preBody = rawContents.head takeWhile (_ startsWith "|") map (_.tail)
-      val instances = rawContents flatMap {_ filter (_ startsWith "-") map (_.tail) }
+      val instances = rawContents flatMap { _ filter (_ startsWith "-") map (_.tail) }
       val postBody = rawContents.head dropWhile (_ startsWith "|") dropWhile (_ startsWith "-") map (_.tail)
       (headerLines ++ preBody ++ instances ++ postBody) mkString "\n"
     }
   }
-
 
   /*
     Blocks in the templates below use a custom interpolator, combined with post-processing to produce the body
@@ -80,7 +79,7 @@ object Boilerplate {
     def file(root: File) = root / "agni" / "TupleRowDecoder.scala"
     def content(tv: TemplateVals) = {
       import tv._
-      val expr = (synVals zipWithIndex) map { case (v,i) => s"$v(row, $i, ver)" }
+      val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(row, $i, ver)" }
       val cartesian = expr mkString " |@| "
       val tupled = if (expr.size == 1) s"${cartesian}.map(Tuple1(_))" else s"(${cartesian}).tupled"
       block"""
@@ -109,7 +108,7 @@ object Boilerplate {
     def file(root: File) = root / "agni" / "TupleBinder.scala"
     def content(tv: TemplateVals) = {
       import tv._
-      val expr = (synVals zipWithIndex) map { case (v,i) => s"$v(bound, $i, xs._${i + 1}, ver)" }
+      val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(bound, $i, xs._${i + 1}, ver)" }
       val maped = s"(${expr mkString " >> "}).map(_ => bound)"
       block"""
         |package agni

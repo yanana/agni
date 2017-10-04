@@ -1,3 +1,10 @@
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+import scalariform.formatter.preferences._
+
+val preferences =
+  ScalariformKeys.preferences := ScalariformKeys.preferences.value
+    .setPreference(DanglingCloseParenthesis, Force)
+
 lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
@@ -9,7 +16,7 @@ lazy val allSettings = Seq.concat(
   buildSettings,
   baseSettings,
   publishSettings,
-  scalariformSettings
+  Seq(preferences)
 )
 
 lazy val buildSettings = Seq(
@@ -88,8 +95,8 @@ lazy val publishSettings = Seq(
 )
 
 lazy val noPublishSettings = Seq(
-  publish := (),
-  publishLocal := (),
+  publish := ((): Unit),
+  publishLocal := ((): Unit),
   publishArtifact := false
 )
 
