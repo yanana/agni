@@ -9,8 +9,8 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`, monix, fs2)
-  .dependsOn(core, `twitter-util`, monix, fs2)
+  .aggregate(core, `twitter-util`, monix, fs2, free)
+  .dependsOn(core, `twitter-util`, monix, fs2, free)
 
 lazy val allSettings = Seq.concat(
   buildSettings,
@@ -34,6 +34,7 @@ val scalatestVersion = "3.0.3"
 val catbirdVersion = "0.15.0"
 val monixVersion = "2.3.0"
 val fs2Version = "0.9.7"
+val mockitoVersion = "2.11.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
@@ -43,7 +44,8 @@ lazy val coreDeps = Seq(
 
 lazy val testDeps = Seq(
   "org.scalacheck" %% "scalacheck" % scalacheckVersion,
-  "org.scalatest" %% "scalatest" % scalatestVersion
+  "org.scalatest" %% "scalatest" % scalatestVersion,
+  "org.mockito" % "mockito-core" % mockitoVersion
 ) map (_ % "test")
 
 lazy val baseSettings = Seq(
@@ -149,6 +151,18 @@ lazy val fs2 = project.in(file("fs2"))
   )
   .dependsOn(core)
 
+lazy val free = project.in(file("free"))
+  .settings(allSettings)
+  .settings(
+    description := "agni free",
+    moduleName := "agni-free",
+    name := "free",
+    libraryDependencies ++= Seq(
+      "org.typelevel" %% "cats" % catsVersion
+    )
+  )
+  .dependsOn(core)
+
 lazy val benchmarks = project.in(file("benchmarks"))
   .settings(allSettings)
   .settings(noPublishSettings)
@@ -173,7 +187,7 @@ lazy val benchmarks = project.in(file("benchmarks"))
     )
   )
   .enablePlugins(JmhPlugin)
-  .dependsOn(`twitter-util`, monix, fs2)
+  .dependsOn(`twitter-util`, monix, fs2, free)
 
 lazy val examples = project.in(file("examples"))
   .settings(allSettings)
@@ -184,11 +198,13 @@ lazy val examples = project.in(file("examples"))
     name := "examples",
     crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= Seq(
+      "org.typelevel" %% "cats" % catsVersion,
+      "org.typelevel" %% "cats-effect" % "0.4",
       "org.slf4j" % "slf4j-simple" % "1.7.13",
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
-  .dependsOn(`twitter-util`)
+  .dependsOn(`twitter-util`, free)
 
 lazy val compilerOptions = Seq(
   "-deprecation",
