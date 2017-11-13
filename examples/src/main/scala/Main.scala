@@ -1,19 +1,21 @@
+import java.io.Closeable
 import java.time.{ LocalDate, ZoneId }
 import java.util.{ Date, UUID }
 import java.util.concurrent.{ Executor, Executors }
 
 import agni.cache.default._
+import agni.free.session._
 import agni.twitter.util.Future
-import cats.instances.list._
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
-import cats.syntax.traverse._
+import cats.data.Kleisli
+import cats.implicits._
+import cats.{ MonadError, ~> }
 import com.datastax.driver.core._
 import com.datastax.driver.core.querybuilder.{ Insert, Select, QueryBuilder => Q }
-import com.twitter.util.{ Await, Try }
-import com.twitter.util.{ Future => TFuture }
+import com.twitter.util.{ Await, Future => TFuture }
 import io.catbird.util._
 import org.scalatest.Matchers
+
+import scala.util.control.NonFatal
 
 // Usage: sbt "examples/runMain Main HOST PORT PROTOCOL_VERSION"
 // Example: sbt "examples/runMain Main 127.0.0.1 9042 4"
@@ -21,7 +23,7 @@ object Main extends App with Matchers {
 
   implicit val ex: Executor = Executors.newWorkStealingPool
 
-  object F extends Future
+  implicit object F_ extends Future
 
   case class Author(
     id: UUID,
@@ -64,20 +66,87 @@ object Main extends App with Matchers {
 
   implicit def buildStatement(s: String): RegularStatement = new SimpleStatement(s)
 
-  val remake: TFuture[Unit] =
-    F.get[Unit](s"""CREATE KEYSPACE IF NOT EXISTS agni_test
-                   |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
-                   |""".stripMargin) >>
-      F.get[Unit]("USE agni_test") >>
-      F.get[Unit](s"DROP TABLE IF EXISTS author") >>
-      F.get[Unit](s"""CREATE TABLE author (
-                   |  id uuid PRIMARY KEY,
-                   |  first_name ascii,
-                   |  last_name ascii,
-                   |  birth timestamp,
-                   |  gender ascii,
-                   |  works map<ascii, int>,
-                   |)""".stripMargin)
+  def getCluster = TFuture(Cluster.builder()
+    .addContactPoint(args(0))
+    .withPort(args(1).toInt)
+    .withProtocolVersion(ProtocolVersion.fromInt(args(2).toInt))
+    .build())
+
+  def bracket[R <: Closeable, F[_], A](fr: F[R])(f: R => F[A])(implicit F: MonadError[F, Throwable]): F[A] =
+    F.flatMap(fr)(r => {
+      F.recoverWith(F.flatMap(f(r)) { a => r.close(); F.pure(a) }) {
+        case NonFatal(e) =>
+          try r.close() catch {
+            case NonFatal(e) => e.printStackTrace()
+          }
+          F.raiseError(e)
+      }
+    })
+
+  val S = implicitly[SessionOps[SessionOp]]
+
+  import Query._
+
+  def remake: S.SessionF[Unit] = for {
+    _ <- S.prepare(createKeyspace).flatMap(p => S.execute[Unit](p.bind()))
+    _ <- S.prepare(useKeyspace).flatMap(p => S.execute[Unit](p.bind()))
+    _ <- S.prepare(useKeyspace).flatMap(p => S.execute[Unit](p.bind()))
+    _ <- S.prepare(dropTable).flatMap(p => S.execute[Unit](p.bind()))
+    _ <- S.prepare(createTable).flatMap(p => S.execute[Unit](p.bind()))
+  } yield ()
+
+  def insertUser(p: PreparedStatement, a: Author): S.SessionF[Unit] =
+    S.bind(p, a).flatMap(b => S.execute[Unit](b))
+
+  def action: S.SessionF[List[Author]] = for {
+    _ <- remake
+    _ <- S.prepare(insertUserQuery).flatMap(p => users.traverse(x => insertUser(p, x)))
+    xs <- S.prepare(selectUserQuery).flatMap(p => S.execute[List[Author]](p.bind()))
+  } yield xs
+
+  type H[A] = Kleisli[TFuture, Session, A]
+
+  def interpret(implicit handler: SessionOp ~> H): H[List[Author]] =
+    action.foldMap(handler)
+
+  def run(): TFuture[List[Author]] = {
+    import SessionOp.Handler._
+    bracket(getCluster)(c => bracket(TFuture(c.connect()))(interpret.run))
+  }
+
+  implicit val authorOrdering: Ordering[Author] =
+    (x: Author, y: Author) => y.id.compareTo(x.id)
+
+  Await.result(run().attempt) match {
+    case Left(e) => throw e
+    case Right(xs) =>
+      println("Result:")
+      xs foreach println
+      assert(users.sorted === xs.sorted)
+  }
+}
+
+object Query {
+  val createKeyspace =
+    s"""CREATE KEYSPACE IF NOT EXISTS agni_test
+       |  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+       |""".stripMargin
+
+  val useKeyspace =
+    "USE agni_test"
+
+  val dropTable =
+    s"DROP TABLE IF EXISTS author"
+
+  val createTable =
+    s"""CREATE TABLE author (
+       |  id uuid PRIMARY KEY,
+       |  first_name ascii,
+       |  last_name ascii,
+       |  birth timestamp,
+       |  gender ascii,
+       |  works map<ascii, int>,
+       |)""".stripMargin
 
   val insertUserQuery: Insert =
     Q.insertInto("author")
@@ -89,36 +158,6 @@ object Main extends App with Matchers {
       .value("works", Q.bindMarker())
 
   val selectUserQuery: Select =
-    Q.select.all.from("author")
-
-  def insertUser(p: PreparedStatement, a: Author): TFuture[Unit] =
-    F.bind(p, a) >>= (b => F.get[Unit](b))
-
-  val action: TFuture[List[Author]] =
-    remake >>
-      (F.prepare(insertUserQuery) >>=
-        (p => users.traverse(insertUser(p, _)))) >>
-        F.get[List[Author]](selectUserQuery)
-
-  val cluster = Cluster.builder()
-    .addContactPoint(args(0))
-    .withPort(args(1).toInt)
-    .withProtocolVersion(ProtocolVersion.fromInt(args(2).toInt))
-    .build()
-
-  implicit val authorOrdering: Ordering[Author] =
-    (x: Author, y: Author) => x.id.compareTo(y.id)
-
-  Try(cluster.connect()) map { session =>
-    Await.result(action.attempt) match {
-      case Left(e) => throw e
-      case Right(xs) =>
-        assert(users.sorted === xs.sorted)
-        xs foreach println
-    }
-  } handle {
-    case e: Throwable =>
-      e.printStackTrace()
-      sys.exit(1)
-  } ensure cluster.close()
+    Q.select.all.from("author") // .orderBy(Q.asc("birth"))
 }
+
