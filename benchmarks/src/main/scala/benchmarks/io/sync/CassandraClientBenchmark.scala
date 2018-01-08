@@ -4,7 +4,7 @@ import java.util.UUID
 
 import benchmarks.io.DefaultSettings
 import cats.instances.try_._
-import cats.syntax.cartesian._
+import cats.syntax.apply._
 import org.openjdk.jmh.annotations._
 
 import scala.util.Try
@@ -30,7 +30,7 @@ class StdTryBenchmark extends CassandraClientBenchmark {
     val fb = get(uuid2)
     val fc = get(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     f.get
   }
@@ -59,7 +59,7 @@ class TwitterTryBenchmark extends CassandraClientBenchmark {
     val fb = get(uuid2)
     val fc = get(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     f.get
   }

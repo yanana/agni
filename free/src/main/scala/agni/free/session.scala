@@ -1,9 +1,9 @@
 package agni.free
 
 import agni.{ Binder, Get, GetPreparedStatement }
-import cats.~>
 import cats.data.Kleisli
-import cats.free.{ Free, Inject }
+import cats.free.Free
+import cats.{ InjectK, ~> }
 import com.datastax.driver.core._
 
 object session {
@@ -69,7 +69,7 @@ object session {
     }
   }
 
-  private[session] abstract class Ops[F[_]](implicit I: Inject[SessionOp, F]) extends Api[F] {
+  private[session] abstract class Ops[F[_]](implicit I: InjectK[SessionOp, F]) extends Api[F] {
     import SessionOp._
 
     def prepare(stmt: RegularStatement): SessionF[PreparedStatement] =
@@ -85,9 +85,9 @@ object session {
       Free.inject[SessionOp, F](ExecuteAsync(stmt))
   }
 
-  final class SessionOps[F[_]](implicit I: Inject[SessionOp, F]) extends Ops[F]
+  final class SessionOps[F[_]](implicit I: InjectK[SessionOp, F]) extends Ops[F]
 
   object SessionOps {
-    implicit def sessionOps[F[_]](implicit I: Inject[SessionOp, F]): SessionOps[F] = new SessionOps()
+    implicit def sessionOps[F[_]](implicit I: InjectK[SessionOp, F]): SessionOps[F] = new SessionOps()
   }
 }

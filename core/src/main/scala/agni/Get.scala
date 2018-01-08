@@ -1,10 +1,11 @@
 package agni
 
-import cats.{ Foldable, MonadError }
+import cats.MonadError
 import cats.syntax.either._
 import cats.syntax.option._
 import com.datastax.driver.core.{ ProtocolVersion, ResultSet, Row }
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
@@ -25,7 +26,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
+      ev: Throwable <:< E
     ): F[Unit] = F.pure(())
   }
 
@@ -33,7 +34,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
+      ev: Throwable <:< E
     ): F[A] =
       F.catchNonFatal(A(result.one, version).fold(throw _, identity))
   }
@@ -42,7 +43,7 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
+      ev: Throwable <:< E
     ): F[Option[A]] = {
       val row = result.one
       if (row == null) F.pure(none)
@@ -58,12 +59,18 @@ object Get {
     override def apply[F[_], E](result: ResultSet, version: ProtocolVersion)(
       implicit
       F: MonadError[F, E],
-      ev: <:<[Throwable, E]
+      ev: Throwable <:< E
     ): F[C[A]] = {
-      val f = Foldable.iteratorFoldM[F, Row, mutable.Builder[A, C[A]]](result.iterator.asScala, cbf.apply) {
-        case (b, a) => A(a, version).fold(F.raiseError(_), a => { b += a; F.pure(b) })
-      }
-      F.map(f)(_.result())
+      val it = result.iterator
+
+      @tailrec def go(m: mutable.Builder[A, C[A]]): F[C[A]] =
+        if (!it.hasNext) F.pure(m.result())
+        else A(it.next, version) match {
+          case Left(e) => F.raiseError(e)
+          case Right(v) => go(m += v)
+        }
+
+      go(cbf.apply)
     }
   }
 

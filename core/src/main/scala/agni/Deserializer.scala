@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import java.util.{ Date, UUID }
 
 import cats.instances.either._
-import cats.syntax.cartesian._
+import cats.syntax.apply._
 import cats.syntax.either._
 import com.datastax.driver.core._
 
@@ -141,7 +141,7 @@ object Deserializer {
             case x =>
               val kbb = CodecUtils.readValue(input, version)
               val vbb = CodecUtils.readValue(input, version)
-              val r = (K.apply(kbb, version) |@| V.apply(vbb, version)).map {
+              val r = (K.apply(kbb, version), V.apply(vbb, version)).mapN {
                 case (k, v) =>
                   acc += k -> v
               }

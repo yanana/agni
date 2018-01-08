@@ -9,8 +9,8 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`, monix, fs2, free)
-  .dependsOn(core, `twitter-util`, monix, fs2, free)
+  .aggregate(core, `twitter-util`, monix, `cats-effect`, free)
+  .dependsOn(core, `twitter-util`, monix, `cats-effect`, free)
 
 lazy val allSettings = Seq.concat(
   buildSettings,
@@ -23,22 +23,23 @@ lazy val buildSettings = Seq(
   organization := "com.github.yanana",
   scalaVersion := "2.12.3",
   crossScalaVersions := Seq("2.11.11", "2.12.3"),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.5")
 )
 
 val datastaxVersion = "3.3.0"
-val catsVersion = "0.9.0"
+val catsVersion = "1.0.1"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
-val scalatestVersion = "3.0.3"
-val catbirdVersion = "0.15.0"
-val monixVersion = "2.3.0"
-val fs2Version = "0.9.7"
+val scalatestVersion = "3.0.4"
+val catbirdVersion = "17.12.0"
+val monixVersion = "3.0.0-M3"
 val mockitoVersion = "2.11.0"
+val catsEffectVersion = "0.8"
+val caffeineVersion = "2.6.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
-  "org.typelevel" %% "cats" % catsVersion,
+  "org.typelevel" %% "cats-core" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion
 )
 
@@ -133,20 +134,19 @@ lazy val monix = project.in(file("monix"))
     name := "monix",
     libraryDependencies ++= Seq(
       "io.monix" %% "monix-eval" % monixVersion,
-      "io.monix" %% "monix-cats" % monixVersion
+      "io.monix" %% "monix-tail" % monixVersion
     )
   )
   .dependsOn(core)
 
-lazy val fs2 = project.in(file("fs2"))
+lazy val `cats-effect` = project.in(file("cats-effect"))
   .settings(allSettings)
   .settings(
-    description := "agni fs2",
-    moduleName := "agni-fs2",
-    name := "fs2",
+    description := "agni cats-effect",
+    moduleName := "agni-cats-effect",
+    name := "cats-effect",
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-core" % fs2Version,
-      "co.fs2" %% "fs2-cats" % "0.3.0"
+      "org.typelevel" %% "cats-effect" % catsEffectVersion
     )
   )
   .dependsOn(core)
@@ -158,7 +158,7 @@ lazy val free = project.in(file("free"))
     moduleName := "agni-free",
     name := "free",
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats" % catsVersion
+      "org.typelevel" %% "cats-free" % catsVersion
     )
   )
   .dependsOn(core)
@@ -174,11 +174,10 @@ lazy val benchmarks = project.in(file("benchmarks"))
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
       "io.monix" %% "monix-eval" % monixVersion,
-      "io.monix" %% "monix-cats" % monixVersion,
-      "co.fs2" %% "fs2-core" % fs2Version,
-      "co.fs2" %% "fs2-cats" % "0.3.0",
-      "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0",
-      "com.github.ben-manes.caffeine" % "guava" % "2.4.0"
+      "io.monix" %% "monix-tail" % monixVersion,
+      "org.typelevel" %% "cats-effect" % catsEffectVersion,
+      "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion,
+      "com.github.ben-manes.caffeine" % "guava" % caffeineVersion
     ),
     scalacOptions ++= Seq(
       "-opt:l:inline",
@@ -187,7 +186,7 @@ lazy val benchmarks = project.in(file("benchmarks"))
     )
   )
   .enablePlugins(JmhPlugin)
-  .dependsOn(`twitter-util`, monix, fs2, free)
+  .dependsOn(`twitter-util`, monix, `cats-effect`, free)
 
 lazy val examples = project.in(file("examples"))
   .settings(allSettings)
@@ -198,8 +197,8 @@ lazy val examples = project.in(file("examples"))
     name := "examples",
     crossScalaVersions := Seq("2.12.3"),
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats" % catsVersion,
-      "org.typelevel" %% "cats-effect" % "0.4",
+      "org.typelevel" %% "cats-free" % catsVersion,
+      "org.typelevel" %% "cats-effect" % "0.5",
       "org.slf4j" % "slf4j-simple" % "1.7.13",
       "org.scalatest" %% "scalatest" % scalatestVersion
     )

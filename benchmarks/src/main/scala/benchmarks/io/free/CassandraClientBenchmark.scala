@@ -7,11 +7,11 @@ import agni.Get
 import agni.free.session._
 import benchmarks.io.DefaultSettings
 import cats.data.Kleisli
+import cats.effect.IO
 import cats.free.Free
 import cats.{ MonadError, ~> }
 import com.datastax.driver.core.Session
 import com.twitter.util.{ Await => TAwait, Future => TFuture }
-import fs2.{ Strategy, Task => FTask }
 import monix.eval.{ Task => MTask }
 import monix.execution.Scheduler
 import org.openjdk.jmh.annotations._
@@ -91,15 +91,14 @@ class MonixTaskBenchmark extends CassandraClientBenchmark[MTask] {
 }
 
 @State(Scope.Benchmark)
-class FS2TaskBenchmarkF extends CassandraClientBenchmark[FTask] {
-  import fs2.interop.cats._
+class CatsEffectTaskBenchmarkF extends CassandraClientBenchmark[IO] {
 
-  implicit val strategy: Strategy =
-    Strategy.fromExecutor(Executors.newWorkStealingPool())
+  implicit val ec: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
-  implicit val cacheableF: Cacheable[FTask] = new agni.fs2.Task {}
+  implicit val cacheableF: Cacheable[IO] = new agni.effect.Task {}
 
   @Benchmark
   def one: Option[User] =
-    Await.result(run[Option[User]](uuid1).unsafeRunAsyncFuture(), Duration.Inf)
+    Await.result(run[Option[User]](uuid1).unsafeToFuture(), Duration.Inf)
 }
