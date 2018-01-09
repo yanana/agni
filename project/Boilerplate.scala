@@ -43,6 +43,7 @@ object Boilerplate {
 
     val `A..N` = synTypes.mkString(", ")
     val `(A..N)` = if (arity == 1) "Tuple1[A]" else synTypes.mkString("(", ", ", ")")
+    val `(_.._)` = if (arity == 1) "Tuple1(a)" else synVals.map(_ => "_").mkString("(", ", ", ")")
     def `a:F[A]..n:F[N]`(f: String) = (synVals zip synTypes) map { case (v, t) => s"$v: $f[$t]" } mkString ", "
   }
 
@@ -79,15 +80,14 @@ object Boilerplate {
     def file(root: File) = root / "agni" / "TupleRowDecoder.scala"
     def content(tv: TemplateVals) = {
       import tv._
-      val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(row, $i, ver)" }
-      val cartesian = expr mkString " |@| "
-      val tupled = if (expr.size == 1) s"${cartesian}.map(Tuple1(_))" else s"(${cartesian}).tupled"
+      val expr = (synVals zipWithIndex) map { case (v, i) => s"$v.apply(row, $i, ver)" } mkString ("(", ", ", ")")
+      val tupled = if (arity == 1) s"${expr}.map(Tuple1(_))" else s"${expr}.mapN(${`(_.._)`})"
       block"""
         |package agni
         |
         |import cats.instances.either._
         |import cats.syntax.either._
-        |import cats.syntax.cartesian._
+        |import cats.syntax.apply._
         |import com.datastax.driver.core.{ ProtocolVersion, Row }
         |
         |trait TupleRowDecoder {
@@ -109,13 +109,13 @@ object Boilerplate {
     def content(tv: TemplateVals) = {
       import tv._
       val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(bound, $i, xs._${i + 1}, ver)" }
-      val maped = s"(${expr mkString " >> "}).map(_ => bound)"
+      val maped = s"(${expr mkString " *> "}).map(_ => bound)"
       block"""
         |package agni
         |
         |import cats.instances.either._
         |import cats.syntax.either._
-        |import cats.syntax.flatMap._
+        |import cats.syntax.apply._
         |import com.datastax.driver.core.{ BoundStatement, ProtocolVersion }
         |
         |trait TupleBinder {

@@ -5,7 +5,8 @@ import java.util.concurrent.{ Executor, Executors }
 import java.util.{ Date, UUID }
 
 import benchmarks.io.DefaultSettings
-import cats.syntax.cartesian._
+import cats.effect.IO
+import cats.syntax.apply._
 import com.datastax.driver.core._
 import com.google.common.util.concurrent.{ FutureCallback, Futures }
 import org.openjdk.jmh.annotations._
@@ -43,7 +44,7 @@ class StdFutureBenchmark extends CassandraClientBenchmark {
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     Await.result(f, Duration.Inf)
   }
@@ -77,7 +78,7 @@ class TwitterFutureBenchmark extends CassandraClientBenchmark {
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     TAwait.result(f)
   }
@@ -115,26 +116,25 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     Await.result(f.runAsync, 10.seconds)
   }
 }
 
 @State(Scope.Benchmark)
-class FS2TaskBenchmark extends CassandraClientBenchmark {
-  import fs2.{ Strategy, Task => FTask }
+class CatsEffectTaskBenchmark extends CassandraClientBenchmark {
 
   import scala.concurrent.duration._
 
-  implicit val strategy: Strategy =
-    Strategy.fromExecutor(Executors.newWorkStealingPool())
+  implicit val ec: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
-  object FF extends agni.fs2.Task
+  object FF extends agni.effect.Task
 
   import FF.F
 
-  @inline final def getAsync(uuid: UUID): FTask[Option[User]] = for {
+  @inline final def getAsync(uuid: UUID): IO[Option[User]] = for {
     p <- FF.prepare(selectUser)
     b <- FF.bind(p, uuid)
     l <- FF.getAsync[Option[User]](b)
@@ -143,7 +143,7 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
   @Benchmark
   def one: Option[User] = {
     val f = getAsync(uuid1)
-    Await.result(f.unsafeRunAsyncFuture(), 10.seconds)
+    Await.result(f.unsafeToFuture(), 10.seconds)
   }
 
   @Benchmark
@@ -152,9 +152,9 @@ class FS2TaskBenchmark extends CassandraClientBenchmark {
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
-    Await.result(f.unsafeRunAsyncFuture(), 10.seconds)
+    Await.result(f.unsafeToFuture(), 10.seconds)
   }
 }
 
@@ -173,8 +173,8 @@ class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
       session.executeAsync(p.bind(uuid)),
       new FutureCallback[ResultSet] {
         import scala.collection.JavaConverters._
-        override def onFailure(t: Throwable): Unit = pp.failure(t)
-        override def onSuccess(result: ResultSet): Unit = {
+        def onFailure(t: Throwable): Unit = pp.failure(t)
+        def onSuccess(result: ResultSet): Unit = {
           pp.success(Option(result.one()).map { x =>
             User(
               id = x.getUUID("id"),
@@ -187,7 +187,7 @@ class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
         }
       },
       new Executor {
-        override def execute(command: Runnable): Unit = context.execute(command)
+        def execute(command: Runnable): Unit = context.execute(command)
       }
     )
     pp.future
@@ -204,7 +204,7 @@ class JavaDriverFutureBenchmark extends CassandraClientBenchmark {
     val fb = getAsync(uuid2)
     val fc = getAsync(uuid3)
 
-    val f = (fa |@| fb |@| fc).map((_, _, _))
+    val f = (fa, fb, fc).mapN((_, _, _))
 
     Await.result(f, Duration.Inf)
   }

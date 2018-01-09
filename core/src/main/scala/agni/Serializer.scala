@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import java.util.{ Date, UUID }
 
 import cats.instances.either._
-import cats.syntax.cartesian._
+import cats.syntax.apply._
 import cats.syntax.either._
 import com.datastax.driver.core._
 
@@ -123,7 +123,7 @@ object Serializer {
       @tailrec def go(m: List[(K, V)], acc: mutable.ArrayBuilder[ByteBuffer]): Result[Array[ByteBuffer]] = m match {
         case Nil => acc.result().asRight
         case (k, v) :: t =>
-          val kv = (K.apply(k, version) |@| V.apply(v, version)).tupled
+          val kv = (K.apply(k, version), V.apply(v, version)).mapN((_, _))
           kv match {
             case Left(e) => Left(e)
             case Right((k0, v0)) =>
