@@ -28,6 +28,7 @@ lazy val buildSettings = Seq(
 
 val datastaxVersion = "3.3.0"
 val catsVersion = "1.0.1"
+val iotaVersion = "0.3.4"
 val shapelessVersion = "2.3.2"
 val scalacheckVersion = "1.13.5"
 val scalatestVersion = "3.0.4"
@@ -158,7 +159,8 @@ lazy val free = project.in(file("free"))
     moduleName := "agni-free",
     name := "free",
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-free" % catsVersion
+      "org.typelevel" %% "cats-free" % catsVersion,
+      "io.frees" %% "iota-core"  % iotaVersion
     )
   )
   .dependsOn(core)

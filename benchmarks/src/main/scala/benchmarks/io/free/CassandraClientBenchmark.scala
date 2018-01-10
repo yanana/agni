@@ -3,6 +3,8 @@ package benchmarks.io.free
 import java.util.UUID
 import java.util.concurrent.{ Executor, Executors }
 
+import _root_.iota.TListK.:::
+import _root_.iota.{ CopK, TNilK }
 import agni.Get
 import agni.free.session._
 import benchmarks.io.DefaultSettings
@@ -31,19 +33,23 @@ abstract class CassandraClientBenchmark[F[_]] extends DefaultSettings {
 
   implicit def cacheableF: Cacheable[F]
 
-  lazy val sessionOpHandler: SessionOp ~> G =
+  implicit lazy val sessionOpHandler: SessionOp.Handler[F, Env] =
     SessionOp.Handler.sessionOpHandlerWithJ[F, Env]
 
-  lazy val S: SessionOps[SessionOp] = implicitly
+  type Algebra[A] = CopK[SessionOp ::: TNilK, A]
 
-  def getUser[A: Get](uuid: UUID): Free[SessionOp, A] = for {
+  implicit lazy val handler: Algebra ~> G = CopK.FunctionK.summon
+
+  lazy val S: iota.SessionOps[Algebra] = implicitly
+
+  def getUser[A: Get](uuid: UUID): Free[Algebra, A] = for {
     p <- S.prepare(selectUser)
     b <- S.bind(p, uuid)
     l <- S.executeAsync[A](b)
   } yield l
 
-  def interpret[A: Get](program: Free[SessionOp, A])(implicit M: MonadError[F, Throwable]): G[A] =
-    program.foldMap(sessionOpHandler)
+  def interpret[A: Get](program: Free[Algebra, A])(implicit M: MonadError[F, Throwable]): G[A] =
+    program.foldMap(handler)
 
   def run[A: Get](uuid: UUID)(implicit M: MonadError[F, Throwable]): F[A] =
     interpret[A](getUser[A](uuid)).run(env)
