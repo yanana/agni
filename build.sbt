@@ -26,7 +26,7 @@ lazy val buildSettings = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.5")
 )
 
-val datastaxVersion = "3.3.0"
+val datastaxVersion = "3.4.0"
 val catsVersion = "1.0.1"
 val iotaVersion = "0.3.4"
 val shapelessVersion = "2.3.3"
