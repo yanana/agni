@@ -9,8 +9,8 @@ lazy val root = project.in(file("."))
   .settings(name := "agni")
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core, `twitter-util`, monix, `cats-effect`, free)
-  .dependsOn(core, `twitter-util`, monix, `cats-effect`, free)
+  .aggregate(core, `twitter-util`, monix, `cats-effect`, free, examples)
+  .dependsOn(core, `twitter-util`, monix, `cats-effect`, free, examples)
 
 lazy val allSettings = Seq.concat(
   buildSettings,
@@ -21,7 +21,7 @@ lazy val allSettings = Seq.concat(
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.12.3",
+  scalaVersion := "2.12.4",
   crossScalaVersions := Seq("2.11.11", "2.12.4"),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.5")
 )
@@ -59,6 +59,7 @@ lazy val baseSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
+  fork in Test := true,
   scalacOptions in (Compile, console) ~= (_ filterNot (_ == "-Ywarn-unused-import"))
 )
 
@@ -121,6 +122,8 @@ lazy val `twitter-util` = project.in(file("twitter-util"))
     description := "agni twitter-util",
     moduleName := "agni-twitter-util",
     name := "twitter-util",
+  )
+  .settings(
     libraryDependencies ++= Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion
     )
@@ -133,6 +136,8 @@ lazy val monix = project.in(file("monix"))
     description := "agni monix",
     moduleName := "agni-monix",
     name := "monix",
+  )
+  .settings(
     libraryDependencies ++= Seq(
       "io.monix" %% "monix-eval" % monixVersion,
       "io.monix" %% "monix-tail" % monixVersion
@@ -146,6 +151,8 @@ lazy val `cats-effect` = project.in(file("cats-effect"))
     description := "agni cats-effect",
     moduleName := "agni-cats-effect",
     name := "cats-effect",
+  )
+  .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-effect" % catsEffectVersion
     )
@@ -158,6 +165,8 @@ lazy val free = project.in(file("free"))
     description := "agni free",
     moduleName := "agni-free",
     name := "free",
+  )
+  .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-free" % catsVersion,
       "io.frees" %% "iota-core"  % iotaVersion
@@ -172,7 +181,8 @@ lazy val benchmarks = project.in(file("benchmarks"))
     description := "agni benchmarks",
     moduleName := "agni-benchmarks",
     name := "benchmarks",
-    crossScalaVersions := Seq("2.12.3"),
+  )
+  .settings(
     libraryDependencies ++= coreDeps ++ Seq(
       "io.catbird" %% "catbird-util" % catbirdVersion,
       "io.monix" %% "monix-eval" % monixVersion,
@@ -181,6 +191,8 @@ lazy val benchmarks = project.in(file("benchmarks"))
       "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion,
       "com.github.ben-manes.caffeine" % "guava" % caffeineVersion
     ),
+  )
+  .settings(
     scalacOptions ++= Seq(
       "-opt:l:inline",
       "-opt-inline-from:**",
@@ -188,7 +200,12 @@ lazy val benchmarks = project.in(file("benchmarks"))
     )
   )
   .enablePlugins(JmhPlugin)
-  .dependsOn(`twitter-util`, monix, `cats-effect`, free)
+  .dependsOn(
+    `twitter-util` % "test->test",
+    monix % "test->test",
+    `cats-effect` % "test->test",
+    free % "test->test"
+  )
 
 lazy val examples = project.in(file("examples"))
   .settings(allSettings)
@@ -197,7 +214,8 @@ lazy val examples = project.in(file("examples"))
     description := "agni examples",
     moduleName := "agni-examples",
     name := "examples",
-    crossScalaVersions := Seq("2.12.3"),
+  )
+  .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-free" % catsVersion,
       "org.typelevel" %% "cats-effect" % "0.5",

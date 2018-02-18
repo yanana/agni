@@ -50,7 +50,7 @@ object Boilerplate {
   trait Template {
     def file(root: File): File
     def content(tv: TemplateVals): String
-    def range = 1 to maxArity
+    def range: Range = 1 to maxArity
     def body: String = {
       val headerLines = header split '\n'
       val rawContents = range map { n => content(new TemplateVals(n)) split '\n' filterNot (_.isEmpty) }
@@ -78,10 +78,10 @@ object Boilerplate {
 
   object GenTupleRowDecoder extends Template {
     def file(root: File) = root / "agni" / "TupleRowDecoder.scala"
-    def content(tv: TemplateVals) = {
+    def content(tv: TemplateVals): String = {
       import tv._
       val expr = (synVals zipWithIndex) map { case (v, i) => s"$v.apply(row, $i, ver)" } mkString ("(", ", ", ")")
-      val tupled = if (arity == 1) s"${expr}.map(Tuple1(_))" else s"${expr}.mapN(${`(_.._)`})"
+      val tupled = if (arity == 1) s"$expr.map(Tuple1(_))" else s"$expr.mapN(${`(_.._)`})"
       block"""
         |package agni
         |
@@ -97,7 +97,7 @@ object Boilerplate {
         -  ): RowDecoder[${`(A..N)`}] =
         -    new RowDecoder[${`(A..N)`}] {
         -      def apply(row: Row, ver: ProtocolVersion): Result[${`(A..N)`}] =
-        -        ${tupled}
+        -        $tupled
         -    }
         |}
       """
@@ -106,7 +106,7 @@ object Boilerplate {
 
   object GenTupleBinder extends Template {
     def file(root: File) = root / "agni" / "TupleBinder.scala"
-    def content(tv: TemplateVals) = {
+    def content(tv: TemplateVals): String = {
       import tv._
       val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(bound, $i, xs._${i + 1}, ver)" }
       val maped = s"(${expr mkString " *> "}).map(_ => bound)"
@@ -125,7 +125,7 @@ object Boilerplate {
         -  ): Binder[${`(A..N)`}] =
         -    new Binder[${`(A..N)`}] {
         -      def apply(bound: BoundStatement, ver: ProtocolVersion, xs: ${`(A..N)`}): Result[BoundStatement] =
-        -        ${maped}
+        -        $maped
         -    }
         |}
       """
