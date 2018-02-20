@@ -114,8 +114,9 @@ object Main extends App with Matchers {
     bracket(getCluster)(c => bracket(TFuture(c.connect()))(interpret.run))
   }
 
-  implicit val authorOrdering: Ordering[Author] =
-    (x: Author, y: Author) => y.id.compareTo(x.id)
+  implicit val authorOrdering: Ordering[Author] = new Ordering[Author] {
+    def compare(x: Author, y: Author): Int = y.id.compareTo(x.id)
+  }
 
   Await.result(run().attempt) match {
     case Left(e) => throw e
