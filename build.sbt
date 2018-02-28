@@ -32,7 +32,7 @@ val iotaVersion = "0.3.4"
 val shapelessVersion = "2.3.3"
 val scalacheckVersion = "1.13.5"
 val scalatestVersion = "3.0.4"
-val catbirdVersion = "17.12.0"
+val catbirdVersion = "18.2.0"
 val monixVersion = "3.0.0-M3"
 val mockitoVersion = "2.11.0"
 val catsEffectVersion = "0.8"
@@ -218,7 +218,7 @@ lazy val examples = project.in(file("examples"))
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-free" % catsVersion,
-      "org.typelevel" %% "cats-effect" % "0.5",
+      "org.typelevel" %% "cats-effect" % catsEffectVersion,
       "org.slf4j" % "slf4j-simple" % "1.7.13",
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
