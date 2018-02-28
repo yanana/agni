@@ -94,10 +94,10 @@ object session {
   object iota {
     import _root_.iota._
 
-    final class SessionOps[F[_] <: CopK[_, _]](implicit I: CopK.Inject[SessionOp, F]) extends Ops[F]
+    final class SessionOps[F[A] <: CopK[_, A]](implicit I: CopK.Inject[SessionOp, F]) extends Ops[F]
 
     object SessionOps {
-      implicit def sessionOpsForIota[F[_] <: CopK[_, _]](implicit I: CopK.Inject[SessionOp, F]): SessionOps[F] = new SessionOps
+      implicit def sessionOpsForIota[F[A] <: CopK[_, A]](implicit I: CopK.Inject[SessionOp, F]): SessionOps[F] = new SessionOps
     }
   }
 }
