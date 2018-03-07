@@ -17,7 +17,7 @@ class SessionOpSpec extends FunSpec with MockitoSugar {
   import agni.cache.default._
   import cats.instances.future._
 
-  final case class Env(session: Session)
+  case class Env(session: Session)
 
   lazy val env: Env = Env(mock[Session])
 
