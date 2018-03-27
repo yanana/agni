@@ -130,7 +130,7 @@ class CatsEffectTaskBenchmark extends CassandraClientBenchmark {
   implicit val ec: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
-  object FF extends agni.effect.Task
+  object FF extends agni.effect.Task[IO]
 
   import FF.F
 

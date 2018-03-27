@@ -102,7 +102,7 @@ class CatsEffectTaskBenchmarkF extends CassandraClientBenchmark[IO] {
   implicit val ec: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
 
-  implicit val cacheableF: Cacheable[IO] = new agni.effect.Task {}
+  implicit val cacheableF: Cacheable[IO] = new agni.effect.Task[IO] {}
 
   @Benchmark
   def one: Option[User] =
