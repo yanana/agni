@@ -27,15 +27,15 @@ lazy val buildSettings = Seq(
 )
 
 val datastaxVersion = "3.4.0"
-val catsVersion = "1.0.1"
+val catsVersion = "1.1.0"
 val iotaVersion = "0.3.6"
 val shapelessVersion = "2.3.3"
-val scalacheckVersion = "1.13.5"
-val scalatestVersion = "3.0.4"
-val catbirdVersion = "18.2.0"
-val monixVersion = "3.0.0-M3"
+val scalacheckVersion = "1.14.0"
+val scalatestVersion = "3.0.5"
+val catbirdVersion = "18.4.0"
+val monixVersion = "3.0.0-RC1"
 val mockitoVersion = "2.11.0"
-val catsEffectVersion = "0.8"
+val catsEffectVersion = "1.0.0-RC"
 val caffeineVersion = "2.6.0"
 
 lazy val coreDeps = Seq(
