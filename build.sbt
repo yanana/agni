@@ -21,8 +21,8 @@ lazy val allSettings = Seq.concat(
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.12.4",
-  crossScalaVersions := Seq("2.11.11", "2.12.4"),
+  scalaVersion := "2.12.5",
+  crossScalaVersions := Seq("2.11.12", "2.12.5"),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.5")
 )
 
