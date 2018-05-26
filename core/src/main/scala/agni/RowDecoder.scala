@@ -27,13 +27,13 @@ object RowDecoder extends LowPriorityRowDecoder with TupleRowDecoder {
   implicit def decodeLabelledHList[K <: Symbol, H, T <: HList](
     implicit
     K: Witness.Aux[K],
-    H: Lazy[RowDeserializer[H]],
-    T: Lazy[RowDecoder[T]]
+    H: RowDeserializer[H],
+    T: RowDecoder[T]
   ): RowDecoder[FieldType[K, H] :: T] =
     new RowDecoder[FieldType[K, H] :: T] {
       def apply(row: Row, version: ProtocolVersion): Result[FieldType[K, H] :: T] = for {
-        h <- H.value.apply(row, K.value.name, version)
-        t <- T.value(row, version)
+        h <- H(row, K.value.name, version)
+        t <- T(row, version)
       } yield field[K](h) :: t
     }
 
@@ -54,6 +54,7 @@ trait LowPriorityRowDecoder {
     decode: Lazy[RowDecoder[R]]
   ): RowDecoder[A] =
     new RowDecoder[A] {
-      def apply(s: Row, version: ProtocolVersion): Result[A] = decode.value(s, version) map (gen from)
+      def apply(s: Row, version: ProtocolVersion): Result[A] =
+        decode.value(s, version) map (gen from)
     }
 }

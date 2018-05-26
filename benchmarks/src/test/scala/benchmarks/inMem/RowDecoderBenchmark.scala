@@ -10,7 +10,7 @@ import org.openjdk.jmh.annotations._
 @Warmup(iterations = 10, time = 5)
 @Measurement(iterations = 10, time = 10)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(1)
+@Fork(2)
 class RowDecoderBenchmark {
   import RowDecoderBenchmark._
 
