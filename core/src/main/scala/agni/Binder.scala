@@ -20,15 +20,15 @@ object Binder extends LowPriorityBinder with TupleBinder {
   implicit def bindLabelledHList[K <: Symbol, H, T <: HList](
     implicit
     K: Witness.Aux[K],
-    H: Lazy[RowSerializer[H]],
-    T: Lazy[Binder[T]]
+    H: RowSerializer[H],
+    T: Binder[T]
   ): Binder[FieldType[K, H] :: T] =
     new Binder[FieldType[K, H] :: T] {
       override def apply(bound: BoundStatement, version: ProtocolVersion, xs: FieldType[K, H] :: T): Result[BoundStatement] =
         xs match {
           case h :: t => for {
-            _ <- H.value.apply(bound, K.value.name, h, version)
-            r <- T.value.apply(bound, version, t)
+            _ <- H(bound, K.value.name, h, version)
+            r <- T(bound, version, t)
           } yield r
         }
     }
