@@ -28,11 +28,11 @@ lazy val buildSettings = Seq(
 
 val datastaxVersion = "3.4.0"
 val catsVersion = "1.1.0"
-val iotaVersion = "0.3.6"
+val iotaVersion = "0.3.8"
 val shapelessVersion = "2.3.3"
 val scalacheckVersion = "1.14.0"
 val scalatestVersion = "3.0.5"
-val catbirdVersion = "18.4.0"
+val catbirdVersion = "18.5.0"
 val monixVersion = "3.0.0-RC1"
 val mockitoVersion = "2.11.0"
 val catsEffectVersion = "1.0.0-RC"
