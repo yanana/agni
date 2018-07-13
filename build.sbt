@@ -23,7 +23,7 @@ lazy val buildSettings = Seq(
   organization := "com.github.yanana",
   scalaVersion := "2.12.6",
   crossScalaVersions := Seq("2.11.12", "2.12.6"),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.5")
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.7")
 )
 
 val datastaxVersion = "3.4.0"
