@@ -30,10 +30,14 @@ script:
       sbt ++$TRAVIS_SCALA_VERSION clean compile test:compile test
     fi
   - |
-    if [[ "$TRAVIS_JDK_VERSION" = "openjdk8" && "$TRAVIS_BRANCH" = "master" && $(cat version.sbt) =~ "-SNAPSHOT" ]]; then
-      export PGP_SECRET_RING_PATH=$(mktemp -d)/secring.asc
+    if [[ "$TRAVIS_JDK_VERSION" = "openjdk8" && $(cat version.sbt) =~ "-SNAPSHOT" ]]; then
+      export PGP_SECRET_RING_PATH="$(mktemp -d)/secring.asc"
       echo "${PGP_SECRET}" | base64 --decode > "${PGP_SECRET_RING_PATH}"
-      echo "${PGP_PASS}" | sbt ++$TRAVIS_SCALA_VERSION publishSigned
+      if [ "$TRAVIS_BRANCH" = "master" ]; then
+        sbt ++$TRAVIS_SCALA_VERSION publishSigned
+      else
+        sbt ++$TRAVIS_SCALA_VERSION publishLocalSigned
+      fi
     fi
 
 after_script:
