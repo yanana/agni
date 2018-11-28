@@ -10,6 +10,12 @@ scala:
 
 jdk:
   - openjdk8
+  - openjdk11
+  - openjdk-ea
+
+matrix:
+  allow_failures:
+    - jdk: openjdk-ea
 
 cache:
   directories:
@@ -34,9 +40,13 @@ script:
       export PGP_SECRET_RING_PATH="$(mktemp -d)/secring.asc"
       echo "${PGP_SECRET}" | base64 --decode > "${PGP_SECRET_RING_PATH}"
       if [ "$TRAVIS_BRANCH" = "master" ]; then
-        sbt ++$TRAVIS_SCALA_VERSION publishSigned
-      else
-        sbt ++$TRAVIS_SCALA_VERSION publishLocalSigned
+        if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then
+          sbt ++$TRAVIS_SCALA_VERSION publishSigned
+        elif [ "$TRAVIS_SECURE_ENV_VARS" = "true" ]; then
+          sbt ++$TRAVIS_SCALA_VERSION publishLocalSigned
+        else
+          sbt ++$TRAVIS_SCALA_VERSION publishLocal
+        fi
       fi
     fi
 
