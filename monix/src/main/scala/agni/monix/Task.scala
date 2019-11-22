@@ -19,7 +19,7 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
   override protected val cache: Cache[String, PreparedStatement] = _cache
 
   override def getAsync[A: Get](stmt: Statement)(implicit s: Session): MTask[A] =
-    MTask.async { (scheduler, cb) =>
+    MTask.async0 { (scheduler, cb) =>
       val f = Guava.async[A](
         s.executeAsync(stmt),
         _.fold(cb.onError, cb.onSuccess),

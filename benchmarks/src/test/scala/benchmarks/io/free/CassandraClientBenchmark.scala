@@ -93,7 +93,7 @@ class MonixTaskBenchmark extends CassandraClientBenchmark[MTask] {
 
   @Benchmark
   def one: Option[User] =
-    Await.result(run[Option[User]](uuid1).runAsync, Duration.Inf)
+    Await.result(run[Option[User]](uuid1).runToFuture, Duration.Inf)
 }
 
 @State(Scope.Benchmark)

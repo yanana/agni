@@ -21,22 +21,22 @@ lazy val allSettings = Seq.concat(
 
 lazy val buildSettings = Seq(
   organization := "com.github.yanana",
-  scalaVersion := "2.12.8",
-  crossScalaVersions := Seq("2.11.12", "2.12.8"),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+  scalaVersion := "2.12.10",
+  crossScalaVersions := Seq("2.11.12", "2.12.10"),
+  addCompilerPlugin(("org.typelevel" % "kind-projector" % "0.11.0").cross(CrossVersion.full))
 )
 
-val datastaxVersion = "3.6.0"
-val catsVersion = "1.5.0"
+val datastaxVersion = "3.8.0"
+val catsVersion = "2.0.0"
 val iotaVersion = "0.3.10"
 val shapelessVersion = "2.3.3"
-val scalacheckVersion = "1.14.0"
-val scalatestVersion = "3.0.5"
-val catbirdVersion = "18.12.0"
-val monixVersion = "3.0.0-RC1"
+val scalacheckVersion = "1.14.1"
+val scalatestVersion = "3.0.8"
+val catbirdVersion = "19.9.0"
+val monixVersion = "3.1.0"
 val mockitoVersion = "2.23.0"
-val catsEffectVersion = "1.1.0"
-val caffeineVersion = "2.6.2"
+val catsEffectVersion = "2.0.0"
+val caffeineVersion = "2.8.0"
 
 lazy val coreDeps = Seq(
   "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
