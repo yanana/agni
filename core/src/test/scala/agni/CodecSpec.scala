@@ -3,14 +3,16 @@ package agni
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets._
-import java.time.Instant
-import java.util.{ Date, UUID }
+import java.time.temporal.ChronoUnit
+import java.time.{ Instant, LocalDate }
+import java.util.UUID
 
 import cats.syntax.either._
-import com.datastax.driver.core.{ Duration, LocalDate, ProtocolVersion }
+import com.datastax.oss.driver.api.core.ProtocolVersion
+import com.datastax.oss.driver.api.core.data.CqlDuration
 import org.scalacheck.{ Arbitrary, Gen, Prop, Shrink }
 import org.scalatest.{ Assertion, FunSuite }
-import org.scalatest.prop.Checkers
+import org.scalatestplus.scalacheck.Checkers
 
 class CodecSpec extends FunSuite with Checkers {
 
@@ -24,17 +26,19 @@ class CodecSpec extends FunSuite with Checkers {
       case (a, b, c, d) => InetAddress.getByAddress(Array(a, b, c, d))
     })
   implicit val arbLocalDate: Arbitrary[LocalDate] =
-    Arbitrary(Gen.const(LocalDate.fromMillisSinceEpoch(Instant.now.toEpochMilli)))
-  implicit val arbDuration: Arbitrary[Duration] =
-    Arbitrary(Gen.resultOf[Int, Int, Long, Duration] {
-      case (a, b, c) => Duration.newInstance(a, b, c)
+    Arbitrary(Gen.const(LocalDate.ofEpochDay(Instant.now.getEpochSecond)))
+  implicit val arbInstant: Arbitrary[Instant] =
+    Arbitrary(Gen.const(Instant.now.truncatedTo(ChronoUnit.MILLIS)))
+  implicit val arbDuration: Arbitrary[CqlDuration] =
+    Arbitrary(Gen.resultOf[Int, Int, Long, CqlDuration] {
+      case (a, b, c) => CqlDuration.newInstance(a, b, c)
     }(Arbitrary(Gen.posNum[Int]), Arbitrary(Gen.posNum[Int]), Arbitrary(Gen.posNum[Long])))
 
   def roundTrip[A: Deserializer: Serializer: Arbitrary: Shrink]: Assertion =
     check(Prop.forAll({ a: A =>
       val r = for {
-        s <- Serializer[A].apply(a, ProtocolVersion.NEWEST_SUPPORTED)
-        d <- Deserializer[A].apply(s, ProtocolVersion.NEWEST_SUPPORTED)
+        s <- Serializer[A].apply(a, ProtocolVersion.DEFAULT)
+        d <- Deserializer[A].apply(s, ProtocolVersion.DEFAULT)
       } yield d === a
       r.fold(throw _, identity)
     }))
@@ -53,8 +57,8 @@ class CodecSpec extends FunSuite with Checkers {
   test("ByteBuffer")(roundTrip[ByteBuffer])
   test("InetAddress")(roundTrip[InetAddress])
   test("LocalDate")(roundTrip[LocalDate])
-  test("Date")(roundTrip[Date])
-  test("Duration")(roundTrip[Duration])
+  test("Instant")(roundTrip[Instant])
+  test("Duration")(roundTrip[CqlDuration])
   test("Map[String, Int]")(roundTrip[Map[String, Int]])
   test("Vector[Int]")(roundTrip[Vector[Int]])
   test("List[Int]")(roundTrip[List[Int]])

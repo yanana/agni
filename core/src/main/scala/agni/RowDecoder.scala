@@ -1,9 +1,10 @@
 package agni
 
 import cats.syntax.either._
-import com.datastax.driver.core.{ ProtocolVersion, Row }
-import shapeless.{ ::, HList, HNil, LabelledGeneric, Lazy, Witness }
+import com.datastax.oss.driver.api.core.ProtocolVersion
+import com.datastax.oss.driver.api.core.cql.Row
 import shapeless.labelled._
+import shapeless.{ ::, HList, HNil, LabelledGeneric, Lazy, Witness }
 
 trait RowDecoder[A] {
   def apply(row: Row, version: ProtocolVersion): Result[A]

@@ -1,10 +1,13 @@
 package agni
 
 import cats.syntax.either._
-import com.datastax.driver.core.{ ProtocolVersion, Row, TupleValue, UDTValue }
+import com.datastax.oss.driver.api.core.ProtocolVersion
+import com.datastax.oss.driver.api.core.cql.Row
+import com.datastax.oss.driver.api.core.data.{ TupleValue, UdtValue }
 
 trait RowDeserializer[A] {
   def apply(row: Row, i: Int, version: ProtocolVersion): Result[A]
+
   def apply(row: Row, name: String, version: ProtocolVersion): Result[A]
 }
 
@@ -31,11 +34,11 @@ object RowDeserializer {
       row.getTupleValue(name).asRight
   }
 
-  implicit val udtValue: RowDeserializer[UDTValue] = new RowDeserializer[UDTValue] {
-    override def apply(row: Row, i: Int, version: ProtocolVersion): Result[UDTValue] =
-      Either.catchNonFatal(row.getUDTValue(i))
+  implicit val udtValue: RowDeserializer[UdtValue] = new RowDeserializer[UdtValue] {
+    override def apply(row: Row, i: Int, version: ProtocolVersion): Result[UdtValue] =
+      Either.catchNonFatal(row.getUdtValue(i))
 
-    override def apply(row: Row, name: String, version: ProtocolVersion): Result[UDTValue] =
-      Either.catchNonFatal(row.getUDTValue(name))
+    override def apply(row: Row, name: String, version: ProtocolVersion): Result[UdtValue] =
+      Either.catchNonFatal(row.getUdtValue(name))
   }
 }

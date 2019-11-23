@@ -1,32 +1,34 @@
 package agni
 package effect
 
-import agni.cache.CachedPreparedStatementWithGuava
-import agni.util.Guava
-import cats.MonadError
-import com.datastax.driver.core._
-import com.google.common.cache.Cache
-import cats.effect.{ Async => EffAsync }
-import com.google.common.util.concurrent.MoreExecutors
+import java.util.concurrent.Executor
 
-abstract class Task[F[_]](implicit FF: EffAsync[F], _cache: Cache[String, PreparedStatement])
-  extends Async[F, Throwable] with CachedPreparedStatementWithGuava {
+import agni.util.Futures
+import cats.MonadError
+import cats.effect.{ Async => EffAsync }
+import com.datastax.oss.driver.api.core.CqlSession
+import com.datastax.oss.driver.api.core.cql.BoundStatement
+
+abstract class Task[F[_]](implicit FF: EffAsync[F])
+  extends Async[F, Throwable] {
 
   override implicit val F: MonadError[F, Throwable] = implicitly
 
-  override protected val cache: Cache[String, PreparedStatement] = _cache
+  private object directExecutor extends Executor {
+    def execute(r: Runnable): Unit = r.run()
+  }
 
-  def getAsync[A: Get](stmt: Statement)(implicit s: Session): F[A] =
+  def getAsync[A: Get](stmt: BoundStatement)(implicit s: CqlSession): F[A] =
     FF.async[A] { cb =>
-      val f = Guava.async[A](
+      val f = Futures.async[A](
         s.executeAsync(stmt),
         cb,
-        MoreExecutors.directExecutor()
+        directExecutor
       )
       f(ver(s))
     }
 }
 
 object Task {
-  implicit def catsEffectTaskInstance[F[_]](implicit F: EffAsync[F], cache: Cache[String, PreparedStatement]): Async[F, Throwable] = new Task[F]() {}
+  implicit def catsEffectTaskInstance[F[_]](implicit F: EffAsync[F]): Async[F, Throwable] = new Task[F]() {}
 }

@@ -26,7 +26,7 @@ lazy val buildSettings = Seq(
   addCompilerPlugin(("org.typelevel" % "kind-projector" % "0.11.0").cross(CrossVersion.full))
 )
 
-val datastaxVersion = "3.8.0"
+val datastaxVersion = "4.3.0"
 val catsVersion = "2.0.0"
 val iotaVersion = "0.3.10"
 val shapelessVersion = "2.3.3"
@@ -39,7 +39,7 @@ val catsEffectVersion = "2.0.0"
 val caffeineVersion = "2.8.0"
 
 lazy val coreDeps = Seq(
-  "com.datastax.cassandra" % "cassandra-driver-core" % datastaxVersion,
+  "com.datastax.oss" % "java-driver-core" % datastaxVersion,
   "org.typelevel" %% "cats-core" % catsVersion,
   "com.chuusai" %% "shapeless" % shapelessVersion
 )
@@ -217,15 +217,15 @@ lazy val examples = project.in(file("examples"))
   )
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-free" % catsVersion,
-      "org.typelevel" %% "cats-effect" % catsEffectVersion,
+      "com.datastax.oss" % "java-driver-query-builder" % datastaxVersion,
       "org.slf4j" % "slf4j-simple" % "1.7.13",
       "org.scalatest" %% "scalatest" % scalatestVersion
     )
   )
-  .dependsOn(`twitter-util`, free)
+  .dependsOn(`cats-effect`, free)
 
 lazy val compilerOptions = Seq(
+  "-target:jvm-1.8",
   "-deprecation",
   "-encoding", "UTF-8",
   "-unchecked",

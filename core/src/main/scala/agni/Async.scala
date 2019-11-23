@@ -1,11 +1,11 @@
 package agni
 
-import com.datastax.driver.core._
+import com.datastax.oss.driver.api.core.cql.BoundStatement
+import com.datastax.oss.driver.api.core.CqlSession
 
 trait Async[F[_], E] extends Agni[F, E] {
-  self: GetPreparedStatement =>
 
-  def getAsync[A: Get](stmt: Statement)(implicit s: Session): F[A]
+  def getAsync[A: Get](stmt: BoundStatement)(implicit s: CqlSession): F[A]
 }
 
 object Async {
