@@ -107,7 +107,7 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
   @Benchmark
   def one: Option[User] = {
     val f = getAsync(uuid1)
-    Await.result(f.runAsync, 10.seconds)
+    Await.result(f.runToFuture, 10.seconds)
   }
 
   @Benchmark
@@ -118,7 +118,7 @@ class MonixTaskBenchmark extends CassandraClientBenchmark {
 
     val f = (fa, fb, fc).mapN((_, _, _))
 
-    Await.result(f.runAsync, 10.seconds)
+    Await.result(f.runToFuture, 10.seconds)
   }
 }
 
