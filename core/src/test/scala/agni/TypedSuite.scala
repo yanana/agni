@@ -2,11 +2,12 @@ package agni
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.util.{ Date, UUID }
+import java.time.{ LocalDate, Instant }
+import java.util.UUID
 
-import com.datastax.driver.core._
+import com.datastax.oss.driver.api.core.data.{ CqlDuration, TupleValue, UdtValue }
 import org.scalatest.FunSuite
-import org.scalatest.prop.Checkers
+import org.scalatestplus.scalacheck.Checkers
 import shapeless.record._
 
 trait TypedSuite extends FunSuite with Checkers {
@@ -25,15 +26,15 @@ trait TypedSuite extends FunSuite with Checkers {
   type T12 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer)
   type T13 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress)
   type T14 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate)
-  type T15 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date)
-  type T16 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration)
-  type T17 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int])
-  type T18 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String])
-  type T19 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double])
-  type T20 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double], Stream[Float])
-  type T21 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String])
-  type T22 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String], TupleValue)
-  type T22_2 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Date, Duration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String], UDTValue)
+  type T15 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant)
+  type T16 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration)
+  type T17 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int])
+  type T18 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String])
+  type T19 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String], Set[Double])
+  type T20 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String], Set[Double], Stream[Float])
+  type T21 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String])
+  type T22 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String], TupleValue)
+  type T22_2 = (Option[Int], String, Int, Long, Float, Double, BigDecimal, Byte, Short, BigInt, UUID, ByteBuffer, InetAddress, LocalDate, Instant, CqlDuration, List[Int], Vector[String], Set[Double], Stream[Float], Map[Int, String], UdtValue)
 
   type IDV = Record.`'foo -> Int, 'bar -> Double, 'quux -> Vector[Int]`.T
 
@@ -56,15 +57,15 @@ object TypedSuite {
     byteBuffer: ByteBuffer,
     inetAddress: InetAddress,
     localDate: LocalDate,
-    date: Date,
-    duration: Duration,
+    date: Instant,
+    duration: CqlDuration,
     listInt: List[Int],
     vectorString: Vector[String],
     setDouble: Set[Double],
     streamFloat: Stream[Float],
     mapIntString: Map[Int, String],
     tupleValue: TupleValue,
-    udtValue: UDTValue
+    udtValue: UdtValue
   )
 
 }

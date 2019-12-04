@@ -3,13 +3,15 @@ package agni
 import java.nio.ByteBuffer
 
 import cats.syntax.either._
-import com.datastax.driver.core.ProtocolVersion
+import com.datastax.oss.driver.api.core.ProtocolVersion
 import org.scalatest.{ Assertion, FunSpec, Matchers }
 
 class DeserializerSpec extends FunSpec with Matchers {
 
+  val protoVer = ProtocolVersion.DEFAULT
+
   def deserializeNull[A: Deserializer](empty: A): Assertion = {
-    val r = Deserializer[A].apply(null.asInstanceOf[ByteBuffer], ProtocolVersion.NEWEST_SUPPORTED)
+    val r = Deserializer[A].apply(null.asInstanceOf[ByteBuffer], protoVer)
     val b = r.fold(throw _, _ === empty)
     assert(b)
   }
@@ -37,8 +39,8 @@ class DeserializerSpec extends FunSpec with Matchers {
       val int = 10
       val des = Deserializer[Int].map(a => a.toString)
       val x = for {
-        v <- Serializer[Int].apply(int, ProtocolVersion.NEWEST_SUPPORTED)
-        r <- des.apply(v, ProtocolVersion.NEWEST_SUPPORTED)
+        v <- Serializer[Int].apply(int, protoVer)
+        r <- des.apply(v, protoVer)
       } yield r
 
       x match {
@@ -53,8 +55,8 @@ class DeserializerSpec extends FunSpec with Matchers {
       val int = 10
       val des = Deserializer[Int].flatMap(a => Deserializer.const(a.toString))
       val x = for {
-        v <- Serializer[Int].apply(int, ProtocolVersion.NEWEST_SUPPORTED)
-        r <- des.apply(v, ProtocolVersion.NEWEST_SUPPORTED)
+        v <- Serializer[Int].apply(int, protoVer)
+        r <- des.apply(v, protoVer)
       } yield r
 
       x match {

@@ -3,24 +3,21 @@ package monix
 
 import java.util.concurrent.Executor
 
-import agni.cache.CachedPreparedStatementWithGuava
-import agni.util.Guava
-import com.datastax.driver.core._
-import com.google.common.cache.Cache
 import _root_.cats.MonadError
-import _root_.monix.execution._
 import _root_.monix.eval.{ Task => MTask }
+import _root_.monix.execution._
+import agni.util.Futures
+import com.datastax.oss.driver.api.core.CqlSession
+import com.datastax.oss.driver.api.core.cql.BoundStatement
 
-abstract class Task(implicit _cache: Cache[String, PreparedStatement])
-  extends Async[MTask, Throwable] with CachedPreparedStatementWithGuava {
+abstract class Task
+  extends Async[MTask, Throwable] {
 
   override implicit val F: MonadError[MTask, Throwable] = cats.taskToMonadError
 
-  override protected val cache: Cache[String, PreparedStatement] = _cache
-
-  override def getAsync[A: Get](stmt: Statement)(implicit s: Session): MTask[A] =
+  override def getAsync[A: Get](stmt: BoundStatement)(implicit s: CqlSession): MTask[A] =
     MTask.async0 { (scheduler, cb) =>
-      val f = Guava.async[A](
+      val f = Futures.async[A](
         s.executeAsync(stmt),
         _.fold(cb.onError, cb.onSuccess),
         new Executor {
@@ -34,5 +31,5 @@ abstract class Task(implicit _cache: Cache[String, PreparedStatement])
 }
 
 object Task {
-  implicit def monixTaskInstance(implicit cache: Cache[String, PreparedStatement]): Async[MTask, Throwable] = new Task() {}
+  implicit val monixTaskInstance: Async[MTask, Throwable] = new Task() {}
 }

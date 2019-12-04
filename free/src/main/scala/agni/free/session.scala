@@ -1,10 +1,11 @@
 package agni.free
 
-import agni.{ Binder, Get, GetPreparedStatement }
+import agni.{ Async, Binder, Get }
 import cats.data.Kleisli
 import cats.free.Free
 import cats.{ InjectK, ~> }
-import com.datastax.driver.core._
+import com.datastax.oss.driver.api.core.cql.{ BoundStatement, SimpleStatement, PreparedStatement }
+import com.datastax.oss.driver.api.core.CqlSession
 
 object session {
 
@@ -12,7 +13,7 @@ object session {
 
     type SessionF[A] = Free[F, A]
 
-    def prepare(stmt: RegularStatement): SessionF[PreparedStatement]
+    def prepare(stmt: SimpleStatement): SessionF[PreparedStatement]
 
     def bind[A: Binder](stmt: PreparedStatement, a: A): SessionF[BoundStatement]
 
@@ -21,10 +22,10 @@ object session {
     def executeAsync[A: Get](stmt: BoundStatement): SessionF[A]
   }
 
-  type Cacheable[F[_]] = agni.Async[F, Throwable] with GetPreparedStatement
+  type AsyncF[F[_]] = Async[F, Throwable]
 
   trait SessionOp[A] {
-    def run[F[_]](implicit F: Cacheable[F]): Kleisli[F, Session, A]
+    def run[F[_]](implicit F: AsyncF[F]): Kleisli[F, CqlSession, A]
   }
 
   type SessionIO[A] = Free[SessionOp, A]
@@ -34,37 +35,37 @@ object session {
 
     object Handler extends LowPriorityHandler {
 
-      implicit def sessionOpHandler[F[_]](implicit F: Cacheable[F]): Handler[F, Session] =
-        new Handler[F, Session] {
-          def apply[A](fa: SessionOp[A]): Kleisli[F, Session, A] = fa.run[F]
+      implicit def sessionOpHandler[F[_]](implicit F: AsyncF[F]): Handler[F, CqlSession] =
+        new Handler[F, CqlSession] {
+          def apply[A](fa: SessionOp[A]): Kleisli[F, CqlSession, A] = fa.run[F]
         }
     }
 
     trait LowPriorityHandler {
 
-      implicit def sessionOpHandlerWithJ[F[_], J](implicit F: Cacheable[F], fj: J => Session): Handler[F, J] =
+      implicit def sessionOpHandlerWithJ[F[_], J](implicit F: AsyncF[F], fj: J => CqlSession): Handler[F, J] =
         new Handler[F, J] {
           def apply[A](fa: SessionOp[A]): Kleisli[F, J, A] = fa.run[F].local(fj)
         }
     }
 
-    final case class Prepare(stmt: RegularStatement) extends SessionOp[PreparedStatement] {
-      def run[F[_]](implicit F: Cacheable[F]): Kleisli[F, Session, PreparedStatement] =
+    final case class Prepare(stmt: SimpleStatement) extends SessionOp[PreparedStatement] {
+      def run[F[_]](implicit F: AsyncF[F]): Kleisli[F, CqlSession, PreparedStatement] =
         Kleisli(implicit s => F.prepare(stmt))
     }
 
     final case class Bind[A: Binder](stmt: PreparedStatement, a: A) extends SessionOp[BoundStatement] {
-      def run[F[_]](implicit F: Cacheable[F]): Kleisli[F, Session, BoundStatement] =
+      def run[F[_]](implicit F: AsyncF[F]): Kleisli[F, CqlSession, BoundStatement] =
         Kleisli(implicit s => F.bind(stmt, a))
     }
 
     final case class Execute[A: Get](stmt: BoundStatement) extends SessionOp[A] {
-      def run[F[_]](implicit F: Cacheable[F]): Kleisli[F, Session, A] =
+      def run[F[_]](implicit F: AsyncF[F]): Kleisli[F, CqlSession, A] =
         Kleisli(implicit s => F.get(stmt))
     }
 
     final case class ExecuteAsync[A: Get](stmt: BoundStatement) extends SessionOp[A] {
-      def run[F[_]](implicit F: Cacheable[F]): Kleisli[F, Session, A] =
+      def run[F[_]](implicit F: AsyncF[F]): Kleisli[F, CqlSession, A] =
         Kleisli(implicit s => F.getAsync(stmt))
     }
   }
@@ -72,7 +73,7 @@ object session {
   private[session] abstract class Ops[F[_]](implicit I: InjectK[SessionOp, F]) extends Api[F] {
     import SessionOp._
 
-    def prepare(stmt: RegularStatement): SessionF[PreparedStatement] =
+    def prepare(stmt: SimpleStatement): SessionF[PreparedStatement] =
       Free.inject[SessionOp, F](Prepare(stmt))
 
     def bind[A: Binder](stmt: PreparedStatement, a: A): SessionF[BoundStatement] =

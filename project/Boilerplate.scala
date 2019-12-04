@@ -88,7 +88,8 @@ object Boilerplate {
         |import cats.instances.either._
         |import cats.syntax.either._
         |import cats.syntax.apply._
-        |import com.datastax.driver.core.{ ProtocolVersion, Row }
+        |import com.datastax.oss.driver.api.core.cql.Row
+        |import com.datastax.oss.driver.api.core.ProtocolVersion
         |
         |trait TupleRowDecoder {
         -
@@ -116,7 +117,8 @@ object Boilerplate {
         |import cats.instances.either._
         |import cats.syntax.either._
         |import cats.syntax.apply._
-        |import com.datastax.driver.core.{ BoundStatement, ProtocolVersion }
+        |import com.datastax.oss.driver.api.core.cql.BoundStatement
+        |import com.datastax.oss.driver.api.core.ProtocolVersion
         |
         |trait TupleBinder {
         -

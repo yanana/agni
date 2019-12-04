@@ -4,9 +4,10 @@ import agni.{ Binder, Get }
 import cats.data.Kleisli
 import cats.free.Free
 import cats.~>
-import com.datastax.driver.core._
 import org.scalatest.FunSpec
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
+import com.datastax.oss.driver.api.core.cql.{ BoundStatement, PreparedStatement, SimpleStatement }
+import com.datastax.oss.driver.api.core.CqlSession
 
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -14,40 +15,39 @@ import scala.concurrent.duration.Duration
 
 class SessionOpSpec extends FunSpec with MockitoSugar {
   import session._
-  import agni.cache.default._
   import cats.instances.future._
 
-  case class Env(session: Session)
+  case class Env(session: CqlSession)
 
-  lazy val env: Env = Env(mock[Session])
+  lazy val env: Env = Env(mock[CqlSession])
 
   type G[A] = Kleisli[Future, Env, A]
 
-  implicit lazy val getSession: Env => Session = _.session
+  implicit lazy val getSession: Env => CqlSession = _.session
 
-  implicit val cacheableF: Cacheable[Future] = new agni.std.Future {
+  implicit val asyncF: AsyncF[Future] = new agni.std.Future {
 
-    override def prepare(stmt: RegularStatement)(
+    override def prepare(stmt: SimpleStatement)(
       implicit
-      s: Session,
+      s: CqlSession,
       ev: Throwable <:< Throwable
     ): Future[PreparedStatement] = Future.successful(mock[PreparedStatement])
 
     override def bind[A: Binder](stmt: PreparedStatement, a: A)(
       implicit
-      s: Session,
+      s: CqlSession,
       ev: Throwable <:< Throwable
     ): Future[BoundStatement] = Future.successful(mock[BoundStatement])
 
-    override def get[A: Get](stmt: Statement)(
+    override def get[A: Get](stmt: BoundStatement)(
       implicit
-      s: Session,
+      s: CqlSession,
       ev: Throwable <:< Throwable
     ): Future[A] = Future.successful(().asInstanceOf[A])
 
-    override def getAsync[A: Get](stmt: Statement)(
+    override def getAsync[A: Get](stmt: BoundStatement)(
       implicit
-      s: Session
+      s: CqlSession
     ): Future[A] = Future.successful(().asInstanceOf[A])
   }
 
@@ -66,7 +66,7 @@ class SessionOpSpec extends FunSpec with MockitoSugar {
     it("should run the program normaly") {
 
       def program: Free[SessionOp, Unit] = for {
-        p <- S.prepare(new SimpleStatement("USE ?;"))
+        p <- S.prepare(SimpleStatement.newInstance("USE ?;"))
         b <- S.bind(p, "1")
         _ <- S.execute[Unit](b)
         _ <- S.executeAsync[Unit](b)
