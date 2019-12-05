@@ -85,9 +85,9 @@ object Boilerplate {
       block"""
         |package agni
         |
-        |import cats.instances.either._
-        |import cats.syntax.either._
-        |import cats.syntax.apply._
+        |import _root_.cats.instances.either._
+        |import _root_.cats.syntax.either._
+        |import _root_.cats.syntax.apply._
         |import com.datastax.oss.driver.api.core.cql.Row
         |import com.datastax.oss.driver.api.core.ProtocolVersion
         |
@@ -109,14 +109,15 @@ object Boilerplate {
     def file(root: File) = root / "agni" / "TupleBinder.scala"
     def content(tv: TemplateVals): String = {
       import tv._
-      val expr = (synVals zipWithIndex) map { case (v, i) => s"$v(bound, $i, xs._${i + 1}, ver)" }
-      val maped = s"(${expr mkString " *> "}).map(_ => bound)"
+      val expr = (synVals zipWithIndex)
+        .map { case (v, i) => s"$v(${if (i == 0) "bound" else "_"}, $i, xs._${i + 1}, ver)" }
+        .foldLeft("") { case (l, r) => if (l.isEmpty) r else s"$l.flatMap($r)" }
       block"""
         |package agni
         |
-        |import cats.instances.either._
-        |import cats.syntax.either._
-        |import cats.syntax.apply._
+        |import _root_.cats.instances.either._
+        |import _root_.cats.syntax.either._
+        |import _root_.cats.syntax.apply._
         |import com.datastax.oss.driver.api.core.cql.BoundStatement
         |import com.datastax.oss.driver.api.core.ProtocolVersion
         |
@@ -127,7 +128,7 @@ object Boilerplate {
         -  ): Binder[${`(A..N)`}] =
         -    new Binder[${`(A..N)`}] {
         -      def apply(bound: BoundStatement, ver: ProtocolVersion, xs: ${`(A..N)`}): Result[BoundStatement] =
-        -        $maped
+        -        $expr
         -    }
         |}
       """
